@@ -239,7 +239,17 @@ homeledger/
 改 `.env` 里的 `PORT`，或用 `PORT=9000 npm start`。
 
 **Q：忘记管理员密码？**
-删掉 `data/homeledger.db` 会重置全部数据（谨慎）。若只是忘记密码，可用 sqlite 工具把 `users` 表里那条记录删除，重启后程序会重新引导创建管理员。
+先试默认账号 `admin / admin888`（仅当库里没有用户时才会创建）。改过密码且忘记时，用仓库自带的**密码重置脚本**（数据不会丢）：
+
+```bash
+# 1. 找到数据目录（NAS 上可执行下面这句定位）
+find /vol1 -name homeledger.db 2>/dev/null
+
+# 2. 重置密码（DATA_DIR 指向 homeledger.db 所在目录；node 可用应用内置 runtime/node）
+DATA_DIR=/path/to/data node scripts/reset-password.js admin "新密码"
+```
+
+脚本会更新密码哈希并清除该用户的全部登录会话，立即生效。也可以用 sqlite 工具删除 `users` 表中该记录后重启，程序会重新引导创建默认管理员（账本成员关系会丢失，不推荐）。
 
 **Q：导入后账户余额不对？**
 导入的记录按账单里的「收/付款方式」自动建/匹配账户。若你的账户名和账单里的不一致，请在「账户」里改名对齐后再重新导入，或导入后在账户页手动调整初始余额。
