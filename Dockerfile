@@ -3,7 +3,7 @@ FROM node:22-slim
 # 时区可被环境变量覆盖
 ENV TZ=Asia/Shanghai \
     NODE_ENV=production \
-    PORT=8080 \
+    PORT=5111 \
     DATA_DIR=/data
 
 WORKDIR /app
@@ -21,9 +21,9 @@ VOLUME ["/data"]
 
 USER node
 
-EXPOSE 8080
+EXPOSE 5111
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8080)+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||5111)+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", "--no-warnings", "server.js"]

@@ -4,3 +4,5 @@ data.old-e2e/
 .env
 .tmp/
 *.log
+dist/
+*.fpk

@@ -7,7 +7,7 @@ description: 家账簿（HomeLedger）自动记账。当用户发送账单截图
 
 ## 前置配置（技能环境变量或对话中告知）
 
-- `HOMELEDGER_URL`：家账簿地址，例如 `http://192.168.5.250:8080`（NAS 局域网内可达）
+- `HOMELEDGER_URL`：家账簿地址，例如 `http://192.168.5.250:5111`（NAS 局域网内可达）
 - `HOMELEDGER_TOKEN`：API 令牌，在家账簿「设置 → 开放 API」中生成（`hl_` 开头）
 
 两个变量缺一个时，先向用户询问，不要猜。

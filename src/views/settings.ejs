@@ -200,13 +200,13 @@
   <div class="divider"></div>
   <div class="tiny muted mono" style="line-height:1.9">
     # 连通测试<br>
-    curl http://127.0.0.1:8080/api/open/ping -H "Authorization: Bearer hl_xxxx"<br>
+    curl http://127.0.0.1:5111/api/open/ping -H "Authorization: Bearer hl_xxxx"<br>
     # 发截图 / 文字自动记账（confirm=true 直接入库）<br>
-    curl -X POST http://127.0.0.1:8080/api/open/ai/bill -H "Authorization: Bearer hl_xxxx" \<br>
+    curl -X POST http://127.0.0.1:5111/api/open/ai/bill -H "Authorization: Bearer hl_xxxx" \<br>
     &nbsp;&nbsp;-H "Content-Type: application/json" \<br>
     &nbsp;&nbsp;-d '{"images":["data:image/png;base64,…"],"confirm":true}'<br>
     # 直接记一笔<br>
-    curl -X POST http://127.0.0.1:8080/api/open/transactions -H "Authorization: Bearer hl_xxxx" \<br>
+    curl -X POST http://127.0.0.1:5111/api/open/transactions -H "Authorization: Bearer hl_xxxx" \<br>
     &nbsp;&nbsp;-H "Content-Type: application/json" \<br>
     &nbsp;&nbsp;-d '{"type":"expense","amount":88,"category":"餐饮","account":"微信零钱","merchant":"肯德基","note":"晚餐"}'
   </div>

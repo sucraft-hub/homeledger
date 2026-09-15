@@ -19,7 +19,7 @@ npm install          # 仅 3 个纯 JS 依赖，80 个包，无原生编译
 npm start
 ```
 
-打开 http://localhost:8080
+打开 http://localhost:5111
 
 ### 方式 B：飞牛 NAS 等 Docker 部署
 
@@ -29,7 +29,7 @@ cd /vol1/1000/docker/homeledger
 docker compose up -d
 ```
 
-打开 `http://<NAS的IP>:8080`
+打开 `http://<NAS的IP>:5111`
 
 `docker-compose.yml` 已预置：
 
@@ -149,7 +149,7 @@ docker compose up -d
 
 **② 安装技能**：把 `openclaw-skill/homeledger-bookkeeping/` 整个目录放进小龙虾的技能目录（或在技能页导入），并在技能配置里填：
 
-- `HOMELEDGER_URL`：家账簿地址，如 `http://<NAS_IP>:8080`
+- `HOMELEDGER_URL`：家账簿地址，如 `http://<NAS_IP>:5111`
 - `HOMELEDGER_TOKEN`：第①步生成的令牌
 
 **③ 开聊天**：发一张支付截图说"记一下"，或直接说"午饭 35 元"，小龙虾会调 API 自动记账并汇报。
@@ -166,7 +166,20 @@ docker compose up -d
 
 ---
 
-## 四、备份与迁移
+## 四·五、飞牛 fnOS 应用包（.fpk）
+
+无需 Docker，应用内置 Node.js 运行时，以飞牛应用形式安装到系统应用中心：
+
+1. 下载 `.fpk`（见 GitHub Releases，或自行打包：`bash packaging/fpk/build-fpk.sh`）
+2. 飞牛桌面 → **应用中心** → 右上角 **设置** → **手动安装应用** → 选择 `.fpk`
+3. 安装后桌面出现「家账簿」图标，点击在浏览器打开，默认端口 **5111**
+4. 账本数据存放在飞牛托管的应用数据目录（`TRIM_PKGVAR/data`），**升级/覆盖安装不丢数据**，卸载才会清除
+
+打包细节见 `packaging/fpk/README.md`。
+
+---
+
+## 五、备份与迁移
 
 **备份**：整个 `data/` 目录就是全部数据。
 
@@ -183,7 +196,7 @@ tar -czf homeledger-backup-$(date +%F).tar.gz data/
 
 ---
 
-## 五、安全说明
+## 六、安全说明
 
 - 密码用 **scrypt** 加盐哈希存储，不存明文
 - 会话持久化在 SQLite，重启不掉线
@@ -194,7 +207,7 @@ tar -czf homeledger-backup-$(date +%F).tar.gz data/
 
 ---
 
-## 六、目录结构
+## 七、目录结构
 
 ```
 homeledger/
@@ -220,7 +233,7 @@ homeledger/
 
 ---
 
-## 七、常见问题
+## 八、常见问题
 
 **Q：端口被占用？**
 改 `.env` 里的 `PORT`，或用 `PORT=9000 npm start`。

@@ -13,7 +13,7 @@ const util = require('./src/lib/util');
 const charts = require('./src/lib/charts');
 const scheduler = require('./src/lib/scheduler');
 
-const PORT = Number(process.env.PORT || 8080);
+const PORT = Number(process.env.PORT || 5111);
 const HOST = process.env.HOST || '0.0.0.0';
 const ROOT = __dirname;
 
