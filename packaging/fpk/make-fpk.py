@@ -52,6 +52,63 @@ def build_app_tgz(app_dir, out_path):
             add_tree(tf, os.path.join(app_dir, top), top, app_dir)
 
 
+CALLBACK_STUBS = {
+    name: f"#!/bin/bash\n\n### This script is called {when} the user {verb} the application.\n\nexit 0\n"
+    for name, when, verb in (
+        ("config_callback", "after", "changes environment variables in"),
+        ("config_init", "before", "changes environment variables in"),
+        ("install_callback", "after", "installs"),
+        ("install_init", "before", "installs"),
+        ("uninstall_callback", "after", "uninstalls"),
+        ("uninstall_init", "before", "uninstalls"),
+        ("upgrade_callback", "after", "upgrades"),
+        ("upgrade_init", "before", "upgrades"),
+    )
+}
+
+MANIFEST_TMPL = """appname               = homeledger
+version               = {version}
+display_name          = 家账簿
+desc                  = 纯后端家庭记账网站：账号密码登录，支持支出/收入/转账/借贷/投资/报销/退款等全类型记账；AI 截图/文本自动记账（支持 OpenAI 兼容接口与规则兜底）；支付宝/微信账单导入；多人共享账本、预算、周期账单、储蓄目标、报表图表；开放 API 可对接小龙虾等自动化工具。数据全部存储在本机 SQLite，不上传云端。
+platform              = x86
+source                = thirdparty
+maintainer            = su
+maintainer_url        = https://github.com/sucraft-hub/homeledger
+distributor           = su
+distributor_url       = https://github.com/sucraft-hub/homeledger
+os_min_version        = 0.8.0
+desktop_uidir         = ui
+desktop_applaunchname = homeledger.Application
+service_port          = 5111
+checkport             = true
+disable_authorization_path = true
+changelog             = v{version}
+"""
+
+PRIVILEGE = '{\n    "defaults":\n    {\n        "run-as": "package"\n    }\n}\n'
+
+RESOURCE = '''{
+  "data-share": {
+    "shares": [
+      {
+        "name": "homeledger"
+      },
+      {
+        "name": "homeledger/data"
+      }
+    ]
+  }
+}
+'''
+
+
+def write_text(path, content):
+    if not os.path.isfile(path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(content)
+
+
 def build_fpk(outer_dir, out_path):
     """外层：app.tgz, cmd/(755), config/, ICON.PNG, ICON_256.PNG, manifest, wizard/"""
     members = []
@@ -100,13 +157,23 @@ def main():
     os.makedirs(os.path.join(app_dir, "runtime"), exist_ok=True)
     os.makedirs(os.path.join(app_dir, "ui", "images"), exist_ok=True)
 
-    # 2. 外层固定文件
+    # 2. 外层固定文件（manifest/privilege/resource/回调脚本缺失时自动生成）
     pkg = os.path.join(os.path.dirname(os.path.abspath(__file__)))
+    try:
+        with open(os.path.join(src, "package.json"), encoding="utf-8") as f:
+            import json
+            version = json.load(f).get("version", "1.0.0")
+    except Exception:
+        version = "1.0.0"
+    write_text(os.path.join(outer_dir, "manifest"), MANIFEST_TMPL.format(version=version))
+    write_text(os.path.join(outer_dir, "config", "privilege"), PRIVILEGE)
+    write_text(os.path.join(outer_dir, "config", "resource"), RESOURCE)
+    for name, stub in CALLBACK_STUBS.items():
+        write_text(os.path.join(outer_dir, "cmd", name), stub)
     for name in ("cmd-main",):
         dst = os.path.join(outer_dir, "cmd", "main")
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         shutil.copy(os.path.join(pkg, name), dst)
-    # 其余生命周期脚本由调用方放入 outer/cmd；图标复制
     for icon in ("ICON.PNG", "ICON_256.PNG"):
         p = os.path.join(pkg, icon)
         if os.path.isfile(p):

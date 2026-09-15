@@ -3,24 +3,95 @@
 LOG_FILE="${TRIM_PKGVAR}/info.log"
 PID_FILE="${TRIM_PKGVAR}/app.pid"
 HEALTH_URL="http://127.0.0.1:5111/healthz"
-
-APP_DIR="${TRIM_APPDEST}/app/homeledger"
-NODE_BIN="${TRIM_APPDEST}/app/runtime/node"
-
-# 启动命令：内置 Node 运行时 + 数据写入应用专属 var 目录
-CMD="env PORT=5111 HOST=0.0.0.0 DATA_DIR=${TRIM_PKGVAR}/data TZ=Asia/Shanghai \"${NODE_BIN}\" --no-warnings \"${APP_DIR}/server.js\""
+PKG_NAME="homeledger"
+NODE_BIN=""
 
 log_msg() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> ${LOG_FILE}
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "${LOG_FILE}" 2>/dev/null
 }
 
-ensure_executable() {
-    # Windows 打包可能丢失可执行位，启动前自愈
-    if [ ! -x "${NODE_BIN}" ]; then
-        chmod +x "${NODE_BIN}" 2>/dev/null || log_msg "WARN: chmod +x node 失败（owner 非当前用户）"
+# ---------- 应用目录探测 ----------
+# fnOS 解压 app.tgz 的目标位置可能带/不带 app/ 前缀，逐个候选目录探测，
+# 找到包含 homeledger/server.js 的那一层。
+detect_base() {
+    local c
+    for c in "${TRIM_APPDEST}/app" "${TRIM_APPDEST}" \
+             "/var/apps/${PKG_NAME}/app" "/var/apps/${PKG_NAME}" \
+             "${TRIM_PKGVAR}/app"; do
+        if [ -f "${c}/${PKG_NAME}/server.js" ]; then
+            printf '%s' "${c}"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# 兜底：若安装器只是把 app.tgz 原样放下而未解压（或 app.tgz 比上次解压新），
+# 自行解压到 PKGVAR 再探测。
+try_self_extract() {
+    local tgz dst="${TRIM_PKGVAR}/app" marker="${TRIM_PKGVAR}/.app_extracted_ok"
+    for tgz in "${TRIM_APPDEST}/app.tgz" "/var/apps/${PKG_NAME}/app.tgz"; do
+        if [ -f "${tgz}" ] && [ "${tgz}" -nt "${marker}" ]; then
+            log_msg "APP: 检测到未解压/更新的 ${tgz}，自行解压到 ${dst}"
+            rm -rf "${dst}"
+            mkdir -p "${dst}"
+            if tar -xzf "${tgz}" -C "${dst}"; then
+                touch "${marker}"
+                log_msg "APP: app.tgz 解压完成"
+            else
+                log_msg "ERROR: app.tgz 解压失败"
+            fi
+        fi
+    done
+}
+
+# ---------- node 运行时自愈 ----------
+# 包内 node 应为 755；若权限丢失且文件 owner 非当前用户（无法 chmod），
+# 拷贝一份到 PKGVAR（当前用户所有）再赋权。
+ensure_node() {
+    local src="$1/runtime/node"
+    local copy="${TRIM_PKGVAR}/node" tmp="${TRIM_PKGVAR}/node.tmp"
+    if [ -x "${src}" ]; then
+        printf '%s' "${src}"; return 0
     fi
-    chmod +x "${APP_DIR}/server.js" 2>/dev/null || true
-    find "${APP_DIR}/src" -name "*.js" ! -perm -u+x -exec chmod +x {} + 2>/dev/null || true
+    chmod +x "${src}" 2>/dev/null
+    if [ -x "${src}" ]; then
+        log_msg "NODE: 启动前 chmod 自愈成功 (${src})"
+        printf '%s' "${src}"; return 0
+    fi
+    if [ -f "${src}" ]; then
+        log_msg "NODE: ${src} 存在但不可执行（owner 或权限问题），尝试拷贝到 ${copy}"
+        if cp -f "${src}" "${tmp}" 2>/dev/null; then
+            mv -f "${tmp}" "${copy}"
+            chmod +x "${copy}" 2>/dev/null
+            if [ -x "${copy}" ]; then
+                printf '%s' "${copy}"; return 0
+            fi
+        fi
+    fi
+    if [ -x "${copy}" ]; then
+        log_msg "NODE: 使用 PKGVAR 中的旧副本 ${copy}"
+        printf '%s' "${copy}"; return 0
+    fi
+    return 1
+}
+
+# ---------- 诊断日志（定位失败时输出，便于远程排查） ----------
+log_env_diagnostics() {
+    log_msg "---- 环境诊断开始 ----"
+    log_msg "TRIM_APPDEST=${TRIM_APPDEST}"
+    log_msg "TRIM_PKGVAR=${TRIM_PKGVAR}"
+    log_msg "uname=$(uname -m 2>&1)"
+    local d out
+    for d in "${TRIM_APPDEST}" "${TRIM_APPDEST}/app" "/var/apps/${PKG_NAME}" "${TRIM_PKGVAR}"; do
+        if [ -d "${d}" ]; then
+            out=$(ls -la "${d}" 2>&1 | tail -n +2 | awk '{print $1, $NF}' | tr '\n' ' ')
+            log_msg "ls ${d}: ${out}"
+        else
+            log_msg "ls ${d}: (目录不存在)"
+        fi
+    done
+    log_msg "---- 环境诊断结束 ----"
 }
 
 health() {
@@ -28,6 +99,7 @@ health() {
         curl -sf -o /dev/null --max-time 3 "${HEALTH_URL}"
         return $?
     fi
+    [ -x "${NODE_BIN}" ] || return 1
     "${NODE_BIN}" -e "fetch('${HEALTH_URL}').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" 2>/dev/null
 }
 
@@ -36,16 +108,34 @@ start_process() {
         return 0
     fi
 
-    ensure_executable
-    mkdir -p "${TRIM_PKGVAR}/data"
+    APP_BASE="$(detect_base)"
+    if [ -z "${APP_BASE}" ]; then
+        try_self_extract
+        APP_BASE="$(detect_base)"
+    fi
+    if [ -z "${APP_BASE}" ]; then
+        log_msg "ERROR: 找不到 ${PKG_NAME}/server.js —— 应用文件解压位置与预期不符"
+        log_env_diagnostics
+        return 1
+    fi
 
-    log_msg "Starting process ... (node: $(${NODE_BIN} -v 2>&1 || echo 'WARN: node 无法执行'))"
+    NODE_BIN="$(ensure_node "${APP_BASE}")" || true
+    if [ ! -x "${NODE_BIN}" ]; then
+        log_msg "ERROR: node 运行时不可执行（${APP_BASE}/runtime/node）"
+        log_env_diagnostics
+        return 1
+    fi
+
+    APP_DIR="${APP_BASE}/${PKG_NAME}"
+    CMD="env PORT=5111 HOST=0.0.0.0 DATA_DIR=${TRIM_PKGVAR}/data TZ=Asia/Shanghai \"${NODE_BIN}\" --no-warnings \"${APP_DIR}/server.js\""
+
+    mkdir -p "${TRIM_PKGVAR}/data"
+    log_msg "APP_BASE=${APP_BASE} NODE_BIN=${NODE_BIN} ($(${NODE_BIN} -v 2>&1))"
+    log_msg "Starting process ..."
     cd "${APP_DIR}" || return 1
     bash -c "${CMD}" >> ${LOG_FILE} 2>&1 &
     # write pid to pidfile
     printf "%s" "$!" > ${PID_FILE}
-    # log_msg "CMD = ${CMD}"
-    # log_msg "pid = $!"
 
     # 等待健康检查就绪（最多 15 秒）
     count=0
