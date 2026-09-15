@@ -23,8 +23,8 @@ mkdir -p "${FPK_DIR}/app/runtime" "${FPK_DIR}/app/homeledger" \
          "${FPK_DIR}/app/ui/images"
 
 echo "==> 2/5 下载 Node ${NODE_VER} linux-x64 运行时"
-curl -sL "https://nodejs.org/dist/v${NODE_VER}/node-v${NODE_VER}-linux-x64.tar.xz" \
-  | tar -xJ -C "${OUT_BASE}" "node-v${NODE_VER}-linux-x64/bin/node"
+curl -sL "https://nodejs.org/dist/v${NODE_VER}/node-v${NODE_VER}-linux-x64.tar.gz" \
+  | tar -xz -C "${OUT_BASE}" "node-v${NODE_VER}-linux-x64/bin/node"
 mv "${OUT_BASE}/node-v${NODE_VER}-linux-x64/bin/node" "${FPK_DIR}/app/runtime/node"
 chmod +x "${FPK_DIR}/app/runtime/node"
 
@@ -99,13 +99,35 @@ EOF
 
 cp "$(dirname "$0")/cmd-main" "${FPK_DIR}/cmd/main" && chmod +x "${FPK_DIR}/cmd/main"
 
-echo "==> 5/5 fnpack build"
+echo "==> 5/6 fnpack build"
 mkdir -p "${REPO_ROOT}/dist"
 (cd "${FPK_DIR}" && "${FNPACK_BIN}" build)
-mv "${FPK_DIR}/../homeledger.fpk" "${REPO_ROOT}/dist/homeledger-${VERSION}.fpk" 2>/dev/null \
-  || mv "homeledger.fpk" "${REPO_ROOT}/dist/homeledger-${VERSION}.fpk"
 
-rm -rf "${OUT_BASE}"
+echo "==> 6/6 修复 tar 权限位（Windows 打包会丢失 Unix 可执行位）"
+# fnpack 在 Windows/macOS 上生成的 app.tgz 所有条目 mode=666，
+# NAS 解压后 runtime/node 无法执行（应用启动失败）。这里解包后按类型重设权限再重打。
+WORK="${OUT_BASE}/repack"
+mkdir -p "${WORK}/outer" "${WORK}/app"
+FPK_RAW="${FPK_DIR}/../homeledger.fpk"
+[ -f "${FPK_RAW}" ] || FPK_RAW="${PWD}/homeledger.fpk"
+
+tar -xzf "${FPK_RAW}" -C "${WORK}/outer"
+tar -xzf "${WORK}/outer/app.tgz" -C "${WORK}/app"
+find "${WORK}/app" -type d -exec chmod 755 {} +
+find "${WORK}/app" -type f -exec chmod 644 {} +
+chmod 755 "${WORK}/app/runtime/node" \
+          "${WORK}/app/homeledger/server.js" \
+          "${WORK}/app/homeledger/node_modules/.bin/"* 2>/dev/null || true
+find "${WORK}/app/homeledger/node_modules" -name "*.sh" -exec chmod 755 {} + 2>/dev/null || true
+
+# 外层 cmd/ 脚本同样需要可执行位
+find "${WORK}/outer/cmd" -type f -exec chmod 755 {} +
+
+tar -czf "${WORK}/outer/app.tgz" -C "${WORK}/app" homeledger runtime ui
+tar -czf "${REPO_ROOT}/dist/homeledger-${VERSION}.fpk" -C "${WORK}/outer" \
+    app.tgz cmd config ICON.PNG ICON_256.PNG manifest wizard
+
+rm -rf "${OUT_BASE}" "${FPK_RAW}"
 echo ""
 echo "✅ 打包完成: dist/homeledger-${VERSION}.fpk"
 echo "   安装: 飞牛桌面 → 应用中心 → 右上角设置 → 手动安装应用"

@@ -14,19 +14,57 @@ log_msg() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> ${LOG_FILE}
 }
 
+ensure_executable() {
+    # Windows 打包可能丢失可执行位，启动前自愈
+    if [ ! -x "${NODE_BIN}" ]; then
+        chmod +x "${NODE_BIN}" 2>/dev/null || log_msg "WARN: chmod +x node 失败（owner 非当前用户）"
+    fi
+    chmod +x "${APP_DIR}/server.js" 2>/dev/null || true
+    find "${APP_DIR}/src" -name "*.js" ! -perm -u+x -exec chmod +x {} + 2>/dev/null || true
+}
+
+health() {
+    if command -v curl >/dev/null 2>&1; then
+        curl -sf -o /dev/null --max-time 3 "${HEALTH_URL}"
+        return $?
+    fi
+    "${NODE_BIN}" -e "fetch('${HEALTH_URL}').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" 2>/dev/null
+}
+
 start_process() {
     if status; then
         return 0
     fi
 
-    log_msg "Starting process ..."
+    ensure_executable
     mkdir -p "${TRIM_PKGVAR}/data"
+
+    log_msg "Starting process ... (node: $(${NODE_BIN} -v 2>&1 || echo 'WARN: node 无法执行'))"
     cd "${APP_DIR}" || return 1
     bash -c "${CMD}" >> ${LOG_FILE} 2>&1 &
     # write pid to pidfile
     printf "%s" "$!" > ${PID_FILE}
     # log_msg "CMD = ${CMD}"
     # log_msg "pid = $!"
+
+    # 等待健康检查就绪（最多 15 秒）
+    count=0
+    while [ $count -lt 15 ]; do
+        sleep 1
+        count=$((count + 1))
+        if health; then
+            log_msg "process ready (healthz ok, ${count}s)"
+            return 0
+        fi
+        if ! status; then
+            log_msg "ERROR: process exited during startup, recent log:"
+            tail -n 20 "${LOG_FILE}" > "${TRIM_PKGVAR}/.recent.log" 2>/dev/null || true
+            cat "${TRIM_PKGVAR}/.recent.log" >> "${LOG_FILE}" 2>/dev/null || true
+            rm -f "${TRIM_PKGVAR}/.recent.log"
+            return 1
+        fi
+    done
+    log_msg "WARN: process alive but healthz not ready after ${count}s"
     return 0
 }
 
@@ -47,7 +85,7 @@ stop_process() {
         log_msg "send TERM signal to PID:${pid}..."
         kill -TERM ${pid} >> ${LOG_FILE} 2>&1
 
-        local count=0
+        count=0
         while check_process "${pid}" && [ $count -lt 10 ]; do
             sleep 1
             count=$((count + 1))
