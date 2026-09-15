@@ -1,0 +1,32 @@
+<div class="notice info mb16">标签是跨分类的横向维度，比如「出差」「装修」「2026海南行」，可以在记账时直接填，用来观察某类专项开销。</div>
+
+<div class="card">
+  <div class="card-head"><h2>全部标签</h2><span class="muted small"><%= tags.length %> 个</span></div>
+  <% if (!tags.length) { %>
+    <div class="empty"><span class="big">🔖</span>还没有标签<div class="small mt8">在下面输入名称即可创建，或在记账时直接填写</div></div>
+  <% } else { %>
+    <div class="row wrap" style="gap:8px">
+      <% tags.forEach(function(t){ %>
+        <span class="chip" style="border-color:<%= t.color %>55">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:<%= t.color %>"></span>
+          <a href="/transactions?tag_id=<%= t.id %>" style="color:inherit"><%= t.name %></a>
+          <span class="muted tiny"><%= t.cnt %> 笔 · <%= helpers.fmtAmount(t.total) %></span>
+          <form method="post" action="/tags/<%= t.id %>/delete" style="display:inline" data-confirm="删除标签「<%= t.name %>」？记录不会被删除。">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <button class="btn btn-sm btn-ghost" style="padding:0 2px;font-size:10px">✕</button>
+          </form>
+        </span>
+      <% }); %>
+    </div>
+  <% } %>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2>新建标签</h2></div>
+  <form method="post" action="/tags" class="inline-form">
+    <input type="hidden" name="_csrf" value="<%= csrf %>">
+    <div class="field"><input type="text" name="name" placeholder="标签名称" required style="width:200px"></div>
+    <div class="field"><input type="color" name="color" value="#4f7cff"></div>
+    <div class="field"><button class="btn btn-primary" type="submit">创建</button></div>
+  </form>
+</div>

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="<%= (user && user.theme) || 'light' %>">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="csrf" content="<%= csrf %>">
+<meta name="theme-color" content="#4f7cff">
+<meta name="color-scheme" content="light dark">
+<title><%= title ? title + ' · ' + siteName : siteName %></title>
+<link rel="stylesheet" href="/static/css/app.css">
+<link rel="manifest" href="/static/manifest.webmanifest">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📒</text></svg>">
+</head>
+<body>
+<div class="shell">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">📒</div>
+      <div><%= siteName %></div>
+    </div>
+
+    <% if (ledgers && ledgers.length) { %>
+    <form class="ledger-switch" method="post" action="/ledgers/switch">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <input type="hidden" name="back" value="<%= path %>">
+      <label>当前账本</label>
+      <select name="ledger_id" onchange="this.form.submit()">
+        <% ledgers.forEach(function(l){ %>
+          <option value="<%= l.id %>" <%= ledger && ledger.id === l.id ? 'selected' : '' %>><%= l.icon %> <%= l.name %><%= l.kind === 'family' ? '（家庭）' : '' %></option>
+        <% }); %>
+      </select>
+    </form>
+    <% } %>
+
+    <nav>
+      <div class="nav-group">
+        <div class="nav-title">记账</div>
+        <a class="nav-item <%= activeNav === 'home' ? 'active' : '' %>" href="/"><span class="ico">🏠</span>总览</a>
+        <a class="nav-item <%= activeNav === 'new' ? 'active' : '' %>" href="/transactions/new"><span class="ico">✏️</span>记一笔</a>
+        <a class="nav-item <%= activeNav === 'transactions' ? 'active' : '' %>" href="/transactions"><span class="ico">📋</span>账单明细</a>
+        <a class="nav-item <%= activeNav === 'calendar' ? 'active' : '' %>" href="/calendar"><span class="ico">🗓️</span>记账日历</a>
+        <a class="nav-item <%= activeNav === 'ai' ? 'active' : '' %>" href="/ai"><span class="ico">🤖</span>AI 截图记账</a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-title">分析</div>
+        <a class="nav-item <%= activeNav === 'reports' ? 'active' : '' %>" href="/reports"><span class="ico">📊</span>报表分析</a>
+        <a class="nav-item <%= activeNav === 'search' ? 'active' : '' %>" href="/search"><span class="ico">🔍</span>搜索筛选</a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-title">资产与计划</div>
+        <a class="nav-item <%= activeNav === 'accounts' ? 'active' : '' %>" href="/accounts"><span class="ico">💳</span>账户管理</a>
+        <a class="nav-item <%= activeNav === 'budgets' ? 'active' : '' %>" href="/budgets"><span class="ico">🎯</span>预算管理</a>
+        <a class="nav-item <%= activeNav === 'recurring' ? 'active' : '' %>" href="/recurring"><span class="ico">🔁</span>周期账单</a>
+        <a class="nav-item <%= activeNav === 'debts' ? 'active' : '' %>" href="/debts"><span class="ico">🤝</span>借贷台账</a>
+        <a class="nav-item <%= activeNav === 'goals' ? 'active' : '' %>" href="/goals"><span class="ico">🐖</span>储蓄目标</a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-title">数据</div>
+        <a class="nav-item <%= activeNav === 'categories' ? 'active' : '' %>" href="/categories"><span class="ico">🏷️</span>分类管理</a>
+        <a class="nav-item <%= activeNav === 'tags' ? 'active' : '' %>" href="/tags"><span class="ico">🔖</span>标签管理</a>
+        <a class="nav-item <%= activeNav === 'import' ? 'active' : '' %>" href="/import"><span class="ico">📥</span>账单导入</a>
+        <a class="nav-item <%= activeNav === 'export' ? 'active' : '' %>" href="/export"><span class="ico">📤</span>导出备份</a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-title">协作与系统</div>
+        <a class="nav-item <%= activeNav === 'ledgers' ? 'active' : '' %>" href="/ledgers"><span class="ico">📚</span>账本管理</a>
+        <a class="nav-item <%= activeNav === 'members' ? 'active' : '' %>" href="/members"><span class="ico">👨‍👩‍👧</span>成员权限</a>
+        <a class="nav-item <%= activeNav === 'notifications' ? 'active' : '' %>" href="/notifications">
+          <span class="ico">🔔</span>通知中心
+          <% if (unreadCount) { %><span class="count"><%= unreadCount %></span><% } %>
+        </a>
+        <a class="nav-item <%= activeNav === 'settings' ? 'active' : '' %>" href="/settings"><span class="ico">⚙️</span>设置</a>
+        <% if (isAdmin) { %>
+        <a class="nav-item <%= activeNav === 'admin' ? 'active' : '' %>" href="/admin"><span class="ico">🛠️</span>系统管理</a>
+        <% } %>
+      </div>
+    </nav>
+
+    <div class="sidebar-foot">
+      <div class="row" style="gap:6px;margin-bottom:6px">
+        <a class="btn btn-sm btn-ghost" href="/theme/<%= (user && user.theme) === 'dark' ? 'light' : 'dark' %>" title="切换主题"><%= (user && user.theme) === 'dark' ? '☀️' : '🌙' %></a>
+        <span class="spacer"></span>
+      </div>
+      <a class="user-chip" href="/settings">
+        <span class="avatar" style="background:<%= user ? user.avatar_color : '#4f7cff' %>"><%= helpers.initials(user ? user.display_name : '?') %></span>
+        <span class="user-meta">
+          <b><%= user ? user.display_name : '' %></b>
+          <span><%= isAdmin ? '管理员' : (ledger ? ROLE_LABEL[ledger.role] : '') %></span>
+        </span>
+      </a>
+      <form method="post" action="/logout" style="margin-top:4px">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <button class="btn btn-sm btn-ghost btn-block" type="submit">退出登录</button>
+      </form>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div style="min-width:0">
+        <h1><%= title || '' %></h1>
+        <% if (typeof sub !== 'undefined' && sub) { %><div class="sub"><%= sub %></div><% } %>
+      </div>
+      <a class="btn btn-sm" href="/search" title="搜索">🔍</a>
+      <a class="btn btn-sm btn-primary" href="/transactions/new">＋ 记一笔</a>
+    </header>
+
+    <div class="content">
+      <% if (flash) { %>
+        <div class="flash <%= flash.type %>"><span><%= flash.message %></span></div>
+      <% } %>
+      <%- body %>
+    </div>
+  </main>
+</div>
+
+<nav class="mobile-nav">
+  <a href="/" class="<%= activeNav === 'home' ? 'active' : '' %>"><span class="ico">🏠</span>总览</a>
+  <a href="/transactions" class="<%= activeNav === 'transactions' ? 'active' : '' %>"><span class="ico">📋</span>明细</a>
+  <a href="/transactions/new" class="fab"><span class="ico">＋</span></a>
+  <a href="/reports" class="<%= activeNav === 'reports' ? 'active' : '' %>"><span class="ico">📊</span>报表</a>
+  <a href="/ai" class="<%= activeNav === 'ai' ? 'active' : '' %>"><span class="ico">🤖</span>AI</a>
+</nav>
+
+<script src="/static/js/app.js" defer></script>
+</body>
+</html>

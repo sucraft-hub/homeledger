@@ -1,0 +1,68 @@
+<%
+  // 交易列表渲染（按日期分组）
+  // 需要：groups（txn.groupByDate 的结果）
+  var showCheckbox = typeof bulk !== 'undefined' && bulk;
+%>
+<% if (!groups || !groups.length) { %>
+  <div class="empty">
+    <span class="big">🗒️</span>
+    还没有记录
+    <div class="small mt8">点右上角「＋ 记一笔」开始，或上传账单截图让 AI 帮你记</div>
+  </div>
+<% } else { %>
+  <% groups.forEach(function(g){ %>
+    <div class="txn-day">
+      <div class="txn-day-head">
+        <% if (showCheckbox) { %><input type="checkbox" class="bulk-all-day" style="margin-right:2px" title="全选本日"><% } %>
+        <span class="bold" style="color:var(--text-2)"><%= helpers.relDate(g.date) %></span>
+        <span class="muted tiny"><%= helpers.weekdayOf(g.date) %></span>
+        <span class="day-sum">
+          <% if (g.income) { %><span class="amount income">+<%= helpers.fmtAmount(g.income) %></span><% } %>
+          <% if (g.expense) { %><span class="amount expense">-<%= helpers.fmtAmount(g.expense) %></span><% } %>
+        </span>
+      </div>
+      <% g.items.forEach(function(t){ %>
+        <div class="txn <%= t.status === 'pending' ? 'pending' : '' %>">
+          <% if (showCheckbox) { %>
+            <input type="checkbox" class="bulk-item" name="ids" value="<%= t.id %>" form="bulk-form">
+          <% } %>
+          <div class="txn-ico" style="background:<%= t.category_color ? t.category_color + '18' : 'var(--card-2)' %>"><%= t.category_icon || t.type_icon %></div>
+          <div class="txn-main">
+            <div class="txn-title">
+              <span><%= t.type === 'transfer' ? '转账' : (t.category_name || t.type_label) %></span>
+              <% if (t.category_parent && t.type !== 'transfer') { %><span class="tiny muted"><%= t.category_parent %></span><% } %>
+              <% if (t.merchant) { %><span class="note"><%= t.merchant %></span>
+              <% } else if (t.note) { %><span class="note"><%= t.note %></span><% } %>
+            </div>
+            <div class="txn-sub">
+              <% if (t.type === 'transfer' || t.type === 'invest_buy' || t.type === 'invest_sell') { %>
+                <span><%= t.account_name || '—' %></span><span>→</span><span><%= t.to_account_name || '—' %></span>
+              <% } else { %>
+                <span><%= t.account_name || '未指定账户' %></span>
+              <% } %>
+              <% if (t.member_name) { %><span>·</span><span><%= t.member_name %></span><% } %>
+              <% if (t.tag_names) { %>
+                <% t.tag_names.split(' ').forEach(function(tag){ %><span class="tag-pill"><%= tag %></span><% }); %>
+              <% } %>
+              <% if (t.is_reimbursable) { %>
+                <span class="chip <%= t.reimbursed_at ? 'income' : 'warn' %>"><%= t.reimbursed_at ? '已报销' : '待报销' %></span>
+              <% } %>
+              <% if (t.status === 'pending') { %><span class="chip">待确认</span><% } %>
+              <% if (t.source === 'ai_screenshot' || t.source === 'ai_text') { %><span class="chip primary">AI</span><% } %>
+              <% if (t.source === 'import') { %><span class="chip">导入</span><% } %>
+              <% if (t.source === 'recurring') { %><span class="chip">周期</span><% } %>
+            </div>
+          </div>
+          <div class="txn-amt amount <%= t.type === 'income' ? 'income' : (t.type === 'transfer' || t.type === 'invest_buy' || t.type === 'invest_sell' ? 'neutral' : 'expense') %>">
+            <%= (t.type === 'income' ? '+' : (t.type === 'transfer' || t.type === 'invest_buy' || t.type === 'invest_sell' ? '' : '-')) %><%= helpers.fmtAmount(t.amount_cents) %>
+            <% if (t.currency !== 'CNY') { %><div class="tiny muted"><%= t.currency %></div><% } %>
+          </div>
+          <div class="txn-act">
+            <a class="btn btn-sm btn-ghost" href="/transactions/<%= t.id %>/edit" title="编辑">✏️</a>
+            <button class="btn btn-sm btn-ghost" type="button" data-del-txn="<%= t.id %>" title="删除">🗑️</button>
+          </div>
+        </div>
+      <% }); %>
+    </div>
+  <% }); %>
+<% } %>

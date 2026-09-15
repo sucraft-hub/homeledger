@@ -1,0 +1,37 @@
+<div class="row between mb12">
+  <div class="muted small">共 <%= total %> 张截图，存放在 NAS 的 data/uploads 目录中</div>
+  <a class="btn btn-sm btn-primary" href="/ai">＋ 上传新截图</a>
+</div>
+
+<% if (!rows.length) { %>
+  <div class="card"><div class="empty"><span class="big">🖼️</span>还没有上传过账单截图<div class="small mt8"><a href="/ai">去体验 AI 截图记账</a></div></div></div>
+<% } else { %>
+  <div class="card">
+    <div class="gallery">
+      <% rows.forEach(function(a){ %>
+        <figure>
+          <img src="/uploads/<%= a.rel_path %>" alt="账单截图" data-zoom="/uploads/<%= a.rel_path %>" loading="lazy">
+          <figcaption>
+            <b><%= a.amount_cents !== null && a.amount_cents !== undefined ? helpers.fmtAmount(a.amount_cents) : (a.ai_status === 'rule' ? '规则解析' : '未关联记录') %></b>
+            <div><%= a.merchant || '—' %></div>
+            <div class="tiny"><%= helpers.fmtDate(a.created_at) %> · <%= Math.round((a.size || 0) / 1024) %> KB</div>
+            <div class="row mt8" style="gap:8px">
+              <% if (a.txn_id) { %><a href="/transactions/<%= a.txn_id %>/edit" class="tiny">查看记录</a><% } %>
+              <form method="post" action="/attachments/<%= a.id %>/delete" data-confirm="删除这张截图？">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <button class="btn btn-sm btn-ghost tiny" style="padding:0;color:var(--expense)">删除</button>
+              </form>
+            </div>
+          </figcaption>
+        </figure>
+      <% }); %>
+    </div>
+    <% if (pages > 1) { %>
+      <div class="pager">
+        <% if (page > 1) { %><a href="/attachments?page=<%= page - 1 %>">上一页</a><% } %>
+        <span class="cur"><%= page %> / <%= pages %></span>
+        <% if (page < pages) { %><a href="/attachments?page=<%= page + 1 %>">下一页</a><% } %>
+      </div>
+    <% } %>
+  </div>
+<% } %>

@@ -1,0 +1,40 @@
+<div class="row between mb12">
+  <div class="muted small">共 <%= rows.length %> 条通知，未读 <%= rows.filter(function(r){ return !r.is_read; }).length %> 条</div>
+  <form method="post" action="/notifications/read-all">
+    <input type="hidden" name="_csrf" value="<%= csrf %>">
+    <button class="btn btn-sm" type="submit">全部标为已读</button>
+  </form>
+</div>
+
+<% if (!rows.length) { %>
+  <div class="card"><div class="empty"><span class="big">🔔</span>还没有通知<div class="small mt8">预算超支、账单到期、借贷到期时会在这里提醒你</div></div></div>
+<% } else { %>
+  <div class="card">
+    <% rows.forEach(function(n){ %>
+      <div class="row" style="padding:11px 0;border-bottom:1px dashed var(--border);<%= n.is_read ? 'opacity:.62' : '' %>">
+        <span style="font-size:18px">
+          <%= n.kind === 'danger' ? '🚨' : n.kind === 'warn' ? '⚠️' : n.kind === 'success' ? '🎉' : '🔔' %>
+        </span>
+        <div style="flex:1;min-width:0">
+          <div class="row" style="gap:8px">
+            <b><%= n.title %></b>
+            <% if (n.ledger_name) { %><span class="chip"><%= n.ledger_name %></span><% } %>
+            <% if (!n.is_read) { %><span class="chip primary">未读</span><% } %>
+          </div>
+          <% if (n.body) { %>
+            <div class="small muted mt8"><%= n.body.replace(/\|budget:.*$/, '').replace(/\|debt:.*$/, '').replace(/\|goal:.*$/, '') %></div>
+          <% } %>
+          <div class="tiny muted mt8"><%= helpers.fmtDateTime(n.created_at) %></div>
+        </div>
+        <div class="right">
+          <% if (n.link) { %>
+            <form method="post" action="/notifications/<%= n.id %>/read" style="display:inline">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <button class="btn btn-sm" type="submit">查看</button>
+            </form>
+          <% } %>
+        </div>
+      </div>
+    <% }); %>
+  </div>
+<% } %>

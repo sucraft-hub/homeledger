@@ -1,0 +1,114 @@
+<div class="grid grid-main">
+  <div>
+    <div class="card">
+      <div class="card-head"><h2>成员列表</h2><span class="muted small">本月记账情况</span></div>
+      <% members.forEach(function(m){ %>
+        <div style="border-bottom:1px dashed var(--border);padding:11px 0">
+          <div class="row">
+            <span class="avatar" style="background:<%= m.avatar_color %>;width:38px;height:38px;flex:0 0 38px;font-size:13px"><%= helpers.initials(m.display_name) %></span>
+            <div style="flex:1;min-width:0">
+              <div class="row" style="gap:8px">
+                <b><%= m.nickname || m.display_name %></b>
+                <span class="chip <%= m.role === 'owner' ? 'primary' : '' %>"><%= ROLE_LABEL[m.role] %></span>
+                <% if (Number(m.user_id) === Number(user.id)) { %><span class="chip">我</span><% } %>
+              </div>
+              <div class="tiny muted mt8">
+                @<%= m.username %>
+                <% if (m.last_login_at) { %> · 最近登录 <%= helpers.fmtDateTime(m.last_login_at) %><% } %>
+              </div>
+            </div>
+            <div class="right">
+              <div class="small">本月 <b><%= m.stat.cnt %></b> 笔</div>
+              <div class="tiny muted">支出 <span class="amount expense"><%= helpers.fmtAmount(m.stat.expense) %></span></div>
+            </div>
+          </div>
+
+          <% if (canManage(ledger.role) && m.role !== 'owner') { %>
+            <div class="row mt8" style="gap:8px;flex-wrap:wrap">
+              <form method="post" action="/members/<%= m.id %>" class="row" style="gap:6px">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <select name="role" style="width:auto">
+                  <option value="viewer" <%= m.role === 'viewer' ? 'selected' : '' %>>只读</option>
+                  <option value="member" <%= m.role === 'member' ? 'selected' : '' %>>成员</option>
+                  <option value="admin" <%= m.role === 'admin' ? 'selected' : '' %>>管理员</option>
+                </select>
+                <input type="text" name="nickname" value="<%= m.nickname || '' %>" placeholder="账本内昵称" style="width:130px">
+                <button class="btn btn-sm" type="submit">保存</button>
+              </form>
+              <form method="post" action="/members/<%= m.id %>/remove" data-confirm="把 <%= m.display_name %> 移出该账本？">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <button class="btn btn-sm btn-danger">移出账本</button>
+              </form>
+            </div>
+          <% } %>
+        </div>
+      <% }); %>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-head"><h2>邀请新成员</h2></div>
+      <% if (!canManage(ledger.role)) { %>
+        <div class="notice">只有账本管理员或拥有者可以邀请成员。</div>
+      <% } else { %>
+        <form method="post" action="/members/invite">
+          <input type="hidden" name="_csrf" value="<%= csrf %>">
+          <div class="field">
+            <label>加入后的角色</label>
+            <select name="role">
+              <option value="member">成员（可记账）</option>
+              <option value="viewer">只读（只能看）</option>
+              <option value="admin">管理员（可管理成员与设置）</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>有效期</label>
+            <select name="days">
+              <option value="1">1 天</option>
+              <option value="7" selected>7 天</option>
+              <option value="30">30 天</option>
+              <option value="90">90 天</option>
+            </select>
+          </div>
+          <button class="btn btn-primary btn-block" type="submit">生成邀请链接</button>
+        </form>
+        <div class="notice small mt12">
+          生成后把链接发给家人/同事，对方<b>注册或登录后打开链接</b>即可加入该账本。
+        </div>
+      <% } %>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>邀请记录</h2></div>
+      <% if (!invites.length) { %>
+        <div class="empty" style="padding:16px">暂无邀请</div>
+      <% } %>
+      <% invites.forEach(function(i){ %>
+        <div style="border-bottom:1px dashed var(--border);padding:8px 0">
+          <div class="row between">
+            <span class="mono tiny"><%= i.code.slice(0, 12) %>…</span>
+            <span class="chip"><%= ROLE_LABEL[i.role] %></span>
+          </div>
+          <div class="tiny muted mt8">
+            由 <%= i.creator || '—' %> 创建 · 有效期至 <%= i.expires_at || '不限' %>
+            <% if (i.used_by) { %><span class="chip income">已使用</span><% } else { %><span class="chip">未使用</span><% } %>
+          </div>
+          <% if (!i.used_by && (!i.expires_at || i.expires_at >= today)) { %>
+            <div class="tiny mt8"><span class="mono">/join/<%= i.code %></span></div>
+          <% } %>
+        </div>
+      <% }); %>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>角色权限说明</h2></div>
+      <div class="small muted" style="line-height:2">
+        <div><b class="chip primary">拥有者</b> 全部权限，可删除账本</div>
+        <div><b class="chip">管理员</b> 可管理成员、账本设置、导入导出</div>
+        <div><b class="chip">成员</b> 可记账、编辑自己的记录、查看统计</div>
+        <div><b class="chip">只读</b> 只能浏览与导出，不能修改</div>
+      </div>
+    </div>
+  </div>
+</div>

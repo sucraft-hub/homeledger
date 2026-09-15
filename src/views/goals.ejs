@@ -1,0 +1,77 @@
+<div class="grid grid-main">
+  <div>
+    <% if (!goals.length) { %>
+      <div class="card"><div class="empty"><span class="big">🐖</span>还没有储蓄目标<div class="small mt8">例如「换手机 8000 元」「旅行基金 15000 元」</div></div></div>
+    <% } %>
+    <% goals.forEach(function(g){ %>
+      <div class="card">
+        <div class="row between mb8">
+          <div>
+            <h2><%= g.icon %> <%= g.name %>
+              <% if (g.status === 'done') { %><span class="chip income">已达成</span><% } %>
+            </h2>
+            <div class="tiny muted mt8">
+              <% if (g.account_name) { %>存入账户 <%= g.account_name %> · <% } %>
+              <% if (g.target_date) { %>
+                目标日 <%= g.target_date %>
+                <% if (g.daysLeft !== null && g.status !== 'done') { %>
+                  · <%= g.daysLeft >= 0 ? '还剩 ' + g.daysLeft + ' 天' : '已逾期 ' + Math.abs(g.daysLeft) + ' 天' %>
+                <% } %>
+              <% } %>
+              <% if (g.note) { %> · <%= g.note %><% } %>
+            </div>
+          </div>
+          <div class="right">
+            <div class="amount" style="font-size:19px"><%= helpers.fmtAmount(g.saved) %></div>
+            <div class="tiny muted">目标 <%= helpers.fmtAmount(g.target) %></div>
+          </div>
+        </div>
+        <%- charts.progressBar(g.saved, g.target, { color: '#52c41a', height: 10 }) %>
+        <div class="row between mt8 tiny">
+          <span class="muted"><%= g.pct.toFixed(1) %>% · 还差 <%= helpers.fmtAmount(g.remain) %></span>
+          <% if (g.needPerMonth && g.status !== 'done') { %>
+            <span class="muted">每月需存 <%= helpers.fmtAmount(g.needPerMonth) %></span>
+          <% } %>
+        </div>
+
+        <div class="row mt12" style="gap:8px;flex-wrap:wrap">
+          <form method="post" action="/goals/<%= g.id %>/deposit" class="row" style="gap:6px">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <input type="text" name="amount" inputmode="decimal" placeholder="存入金额" style="width:110px">
+            <label class="check tiny"><input type="checkbox" name="create_txn" value="1" checked> 生成流水</label>
+            <button class="btn btn-sm btn-primary" type="submit">存入</button>
+          </form>
+          <form method="post" action="/goals/<%= g.id %>/delete" data-confirm="删除储蓄目标「<%= g.name %>」？">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <button class="btn btn-sm btn-ghost">删除</button>
+          </form>
+        </div>
+      </div>
+    <% }); %>
+  </div>
+
+  <div>
+    <div class="card sticky-side">
+      <div class="card-head"><h2>新建储蓄目标</h2></div>
+      <form method="post" action="/goals">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <div class="row" style="gap:8px">
+          <div class="field" style="flex:0 0 70px"><label>图标</label><input type="text" name="icon" value="🎯"></div>
+          <div class="field" style="flex:1"><label>目标名称</label><input type="text" name="name" placeholder="例如：换手机" required></div>
+        </div>
+        <div class="field"><label>目标金额</label><input type="text" name="target_amount" inputmode="decimal" placeholder="8000" required></div>
+        <div class="field"><label>已存金额</label><input type="text" name="saved_amount" inputmode="decimal" placeholder="0"></div>
+        <div class="field">
+          <label>存入账户（可选）</label>
+          <select name="account_id">
+            <option value="">不指定</option>
+            <% form.accounts.forEach(function(a){ %><option value="<%= a.id %>"><%= a.icon %> <%= a.name %></option><% }); %>
+          </select>
+        </div>
+        <div class="field"><label>目标日期（可选）</label><input type="date" name="target_date"></div>
+        <div class="field"><label>备注</label><input type="text" name="note"></div>
+        <button class="btn btn-primary btn-block" type="submit">创建目标</button>
+      </form>
+    </div>
+  </div>
+</div>

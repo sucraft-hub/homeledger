@@ -1,0 +1,112 @@
+<div class="row between mb12">
+  <div class="muted small">账本用于分隔不同用途的账目，例如「家庭」「旅行」「工作室」。每个账本可邀请成员共同记账。</div>
+  <a class="btn btn-primary btn-sm" href="#new-ledger">＋ 新建账本</a>
+</div>
+
+<div class="grid grid-2">
+  <% rows.forEach(function(l){ %>
+    <div class="card">
+      <div class="row between">
+        <div style="min-width:0">
+          <h2><%= l.icon %> <%= l.name %>
+            <% if (l.is_archived) { %><span class="chip">已归档</span><% } %>
+            <% if (Number(l.id) === Number(ledger ? ledger.id : 0)) { %><span class="chip primary">当前</span><% } %>
+          </h2>
+          <div class="tiny muted mt8">
+            <%= { personal:'个人', family:'家庭', business:'经营', travel:'旅行', project:'项目' }[l.kind] || l.kind %>
+            · <%= l.currency %> · <%= l.txn_count %> 笔记录 · <%= l.member_count %> 位成员 · <%= l.account_count %> 个账户
+          </div>
+          <% if (l.note) { %><div class="small muted mt8"><%= l.note %></div><% } %>
+        </div>
+      </div>
+
+      <div class="row tiny mt12" style="gap:10px;flex-wrap:wrap">
+        <% if (Number(l.id) !== Number(ledger ? ledger.id : 0)) { %>
+          <form method="post" action="/ledgers/switch">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <input type="hidden" name="ledger_id" value="<%= l.id %>">
+            <input type="hidden" name="back" value="/">
+            <button class="btn btn-sm btn-primary">切换到该账本</button>
+          </form>
+        <% } %>
+        <a class="btn btn-sm" href="/ledgers?edit=<%= l.id %>#edit-<%= l.id %>">编辑</a>
+        <form method="post" action="/ledgers/<%= l.id %>/archive" style="display:inline">
+          <input type="hidden" name="_csrf" value="<%= csrf %>">
+          <button class="btn btn-sm btn-ghost"><%= l.is_archived ? '取消归档' : '归档' %></button>
+        </form>
+      </div>
+
+      <div class="ledger-edit-form <%= String(q.edit) === String(l.id) ? '' : 'hidden' %> mt12" id="edit-<%= l.id %>" style="background:var(--card-2);padding:12px;border-radius:10px">
+        <form method="post" action="/ledgers/<%= l.id %>">
+          <input type="hidden" name="_csrf" value="<%= csrf %>">
+          <div class="row wrap" style="gap:10px">
+            <div class="field" style="flex:2;min-width:130px"><label>名称</label><input type="text" name="name" value="<%= l.name %>"></div>
+            <div class="field" style="flex:1;min-width:80px"><label>图标</label><input type="text" name="icon" value="<%= l.icon %>"></div>
+            <div class="field" style="flex:1;min-width:110px"><label>用途</label><select name="kind">
+              <% [['personal','个人'],['family','家庭'],['business','经营'],['travel','旅行'],['project','项目']].forEach(function(k){ %>
+                <option value="<%= k[0] %>" <%= l.kind === k[0] ? 'selected' : '' %>><%= k[1] %></option>
+              <% }); %>
+            </select></div>
+            <div class="field" style="flex:1;min-width:90px"><label>币种</label><select name="currency">
+              <% ['CNY','USD','EUR','HKD','JPY','SGD'].forEach(function(c){ %><option value="<%= c %>" <%= l.currency === c ? 'selected' : '' %>><%= c %></option><% }); %>
+            </select></div>
+          </div>
+          <div class="field"><label>备注</label><input type="text" name="note" value="<%= l.note || '' %>"></div>
+          <button class="btn btn-sm btn-primary" type="submit">保存</button>
+        </form>
+        <% if (l.role === 'owner') { %>
+          <div class="divider"></div>
+          <form method="post" action="/ledgers/<%= l.id %>/delete" data-confirm="⚠️ 危险操作：将永久删除账本「<%= l.name %>」及其全部记录、账户、预算、附件，且不可恢复！确定继续吗？">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <div class="row wrap" style="gap:8px">
+              <input type="text" name="confirm" placeholder="输入账本名称「<%= l.name %>」以确认" style="flex:1;min-width:180px">
+              <button class="btn btn-sm btn-danger" type="submit">永久删除该账本</button>
+            </div>
+          </form>
+        <% } %>
+      </div>
+    </div>
+  <% }); %>
+</div>
+
+<div class="card" id="new-ledger">
+  <div class="card-head"><h2>新建账本</h2></div>
+  <form method="post" action="/ledgers">
+    <input type="hidden" name="_csrf" value="<%= csrf %>">
+    <div class="row wrap" style="gap:12px">
+      <div class="field" style="flex:2;min-width:160px">
+        <label>账本名称</label>
+        <input type="text" name="name" placeholder="例如：家庭账本 / 2026 装修" required>
+      </div>
+      <div class="field" style="flex:1;min-width:120px">
+        <label>用途</label>
+        <select name="kind">
+          <option value="personal">个人</option>
+          <option value="family">家庭（多人共享）</option>
+          <option value="business">经营</option>
+          <option value="travel">旅行</option>
+          <option value="project">项目</option>
+        </select>
+      </div>
+      <div class="field" style="flex:0 0 80px"><label>图标</label><input type="text" name="icon" value="📒"></div>
+      <div class="field" style="flex:1;min-width:100px">
+        <label>币种</label>
+        <select name="currency"><option value="CNY">CNY</option><option value="USD">USD</option><option value="EUR">EUR</option><option value="HKD">HKD</option></select>
+      </div>
+    </div>
+    <div class="field"><label>备注</label><input type="text" name="note" placeholder="可选"></div>
+    <div class="row">
+      <label class="check"><input type="checkbox" name="with_default_accounts" value="1" checked> 自动创建默认账户（现金 / 支付宝 / 微信 / 银行卡 / 信用卡）</label>
+      <span class="spacer"></span>
+      <button class="btn btn-primary" type="submit">创建账本</button>
+    </div>
+  </form>
+</div>
+
+<script>
+(function(){
+  document.querySelectorAll('.ledger-edit-form').forEach(function(el){
+    if (!el.classList.contains('hidden')) el.scrollIntoView({ block:'center' });
+  });
+})();
+</script>

@@ -1,0 +1,120 @@
+<div class="grid grid-5 mb16">
+  <div class="stat"><div class="label">用户</div><div class="value"><%= stats.users %></div></div>
+  <div class="stat"><div class="label">账本</div><div class="value"><%= stats.ledgers %></div></div>
+  <div class="stat"><div class="label">记账总数</div><div class="value"><%= stats.txns %></div></div>
+  <div class="stat"><div class="label">账单截图</div><div class="value"><%= stats.attachments %></div></div>
+  <div class="stat">
+    <div class="label">占用空间</div>
+    <div class="value" style="font-size:18px"><%= ((stats.dbSize + stats.uploadsSize) / 1024 / 1024).toFixed(2) %> MB</div>
+    <div class="delta">数据库 <%= (stats.dbSize / 1024).toFixed(0) %> KB · 附件 <%= (stats.uploadsSize / 1024 / 1024).toFixed(2) %> MB</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2>用户管理</h2>
+    <span class="muted small">共 <%= users.length %> 个账号</span>
+  </div>
+  <div class="scroll-x">
+    <table class="table">
+      <thead><tr><th>用户</th><th>角色</th><th>账本 / 记录</th><th>最近登录</th><th>状态</th><th>操作</th></tr></thead>
+      <tbody>
+        <% users.forEach(function(u2){ %>
+          <tr>
+            <td>
+              <div class="row">
+                <span class="avatar" style="background:<%= u2.avatar_color %>;width:26px;height:26px;flex:0 0 26px;font-size:11px"><%= helpers.initials(u2.display_name) %></span>
+                <div>
+                  <b><%= u2.display_name %></b>
+                  <div class="tiny muted mono">@<%= u2.username %></div>
+                </div>
+              </div>
+            </td>
+            <td><%= u2.is_admin ? '<span class="chip primary">管理员</span>' : '<span class="chip">普通用户</span>' %></td>
+            <td class="small"><%= u2.ledger_count %> 本 / <%= u2.txn_count %> 笔</td>
+            <td class="small muted"><%= helpers.fmtDateTime(u2.last_login_at) || '从未登录' %></td>
+            <td><%= u2.status === 'active' ? '<span class="chip income">正常</span>' : '<span class="chip expense">已禁用</span>' %></td>
+            <td>
+              <div class="row wrap" style="gap:6px">
+                <form method="post" action="/admin/users/<%= u2.id %>">
+                  <input type="hidden" name="_csrf" value="<%= csrf %>">
+                  <input type="hidden" name="action" value="<%= u2.is_admin ? 'demote' : 'promote' %>">
+                  <button class="btn btn-sm"><%= u2.is_admin ? '取消管理员' : '设为管理员' %></button>
+                </form>
+                <form method="post" action="/admin/users/<%= u2.id %>">
+                  <input type="hidden" name="_csrf" value="<%= csrf %>">
+                  <input type="hidden" name="action" value="<%= u2.status === 'active' ? 'disable' : 'enable' %>">
+                  <button class="btn btn-sm"><%= u2.status === 'active' ? '禁用' : '启用' %></button>
+                </form>
+                <form method="post" action="/admin/users/<%= u2.id %>" data-confirm="重置 <%= u2.display_name %> 的密码？">
+                  <input type="hidden" name="_csrf" value="<%= csrf %>">
+                  <input type="hidden" name="action" value="reset">
+                  <button class="btn btn-sm">重置密码</button>
+                </form>
+                <form method="post" action="/admin/users/<%= u2.id %>" data-confirm="⚠️ 删除用户 <%= u2.display_name %>？其名下账本会转交给其他成员。">
+                  <input type="hidden" name="_csrf" value="<%= csrf %>">
+                  <input type="hidden" name="action" value="delete">
+                  <button class="btn btn-sm btn-danger">删除</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h2>运行环境</h2></div>
+    <div class="kv"><span class="k">Node</span><span class="v mono"><%= envInfo.node %></span></div>
+    <div class="kv"><span class="k">平台</span><span class="v mono"><%= envInfo.platform %> · PID <%= envInfo.pid %></span></div>
+    <div class="kv"><span class="k">内存占用</span><span class="v"><%= envInfo.mem %> MB</span></div>
+    <div class="kv"><span class="k">已运行</span><span class="v"><%= Math.floor(envInfo.uptime / 3600) %> 小时 <%= Math.floor((envInfo.uptime % 3600) / 60) %> 分</span></div>
+    <div class="kv"><span class="k">时区</span><span class="v mono"><%= envInfo.tz %></span></div>
+    <div class="kv"><span class="k">数据目录</span><span class="v mono" style="font-size:11px"><%= envInfo.dataDir %></span></div>
+    <div class="row mt12" style="gap:8px;flex-wrap:wrap">
+      <a class="btn btn-sm" href="/backup/db">下载数据库备份</a>
+      <a class="btn btn-sm" href="/settings#ai">AI 配置</a>
+      <a class="btn btn-sm" href="/export">导出数据</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>后台任务</h2></div>
+    <p class="small muted mb12">
+      系统每 30 分钟自动检查一次：生成到期的周期账单、检查预算是否超支、提醒即将到期的借贷与储蓄目标。
+      重启服务后也会立即补跑一次。你也可以手动触发：
+    </p>
+    <form method="post" action="/admin/run-scheduler">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <button class="btn btn-primary" type="submit">立即执行一次检查</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2>操作审计日志</h2><span class="muted small">最近 60 条</span></div>
+  <% if (!audits.length) { %>
+    <div class="empty" style="padding:20px">暂无日志</div>
+  <% } else { %>
+    <div class="scroll-x" style="max-height:420px;overflow-y:auto">
+      <table class="table">
+        <thead><tr><th>时间</th><th>用户</th><th>动作</th><th>对象</th><th>详情</th><th>IP</th></tr></thead>
+        <tbody>
+          <% audits.forEach(function(a){ %>
+            <tr>
+              <td class="nowrap tiny muted"><%= helpers.fmtDateTime(a.created_at) %></td>
+              <td class="small"><%= a.display_name || '—' %></td>
+              <td><span class="chip"><%= a.action %></span></td>
+              <td class="small muted"><%= a.entity || '' %><%= a.entity_id ? '#' + a.entity_id : '' %></td>
+              <td class="small"><%= a.detail || '' %></td>
+              <td class="tiny muted mono"><%= a.ip || '' %></td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>

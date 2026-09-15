@@ -1,0 +1,280 @@
+<div class="tabs">
+  <a href="#account" class="active">账号安全</a>
+  <a href="#ai">AI 记账</a>
+  <a href="#api">开放 API</a>
+  <% if (isAdmin) { %><a href="#site">站点设置</a><% } %>
+  <a href="#env">运行信息</a>
+</div>
+
+<div class="grid grid-2">
+  <div class="card" id="account">
+    <div class="card-head"><h2>个人资料</h2></div>
+    <form method="post" action="/settings/profile">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <div class="row" style="gap:12px;align-items:flex-start">
+        <span class="avatar" style="background:<%= user.avatar_color %>;width:52px;height:52px;flex:0 0 52px;font-size:18px"><%= helpers.initials(user.display_name) %></span>
+        <div style="flex:1">
+          <div class="field"><label>昵称</label><input type="text" name="display_name" value="<%= user.display_name %>" required></div>
+          <div class="field"><label>邮箱（可选）</label><input type="email" name="email" value="<%= user.email || '' %>"></div>
+          <div class="field"><label>头像颜色</label><input type="color" name="avatar_color" value="<%= user.avatar_color %>"></div>
+        </div>
+      </div>
+      <button class="btn btn-primary" type="submit">保存资料</button>
+    </form>
+    <div class="divider"></div>
+    <div class="row between">
+      <div>
+        <b>外观主题</b>
+        <div class="tiny muted">当前：<%= user.theme === 'dark' ? '深色' : '浅色' %></div>
+      </div>
+      <a class="btn btn-sm" href="/theme/<%= user.theme === 'dark' ? 'light' : 'dark' %>">切换到<%= user.theme === 'dark' ? '浅色' : '深色' %></a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>修改密码</h2></div>
+    <form method="post" action="/settings/password">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <div class="field"><label>当前密码</label><input type="password" name="old_password" autocomplete="current-password" required></div>
+      <div class="field"><label>新密码</label><input type="password" name="new_password" autocomplete="new-password" required>
+        <div class="help">至少 6 位，建议字母 + 数字混合</div></div>
+      <div class="field"><label>确认新密码</label><input type="password" name="new_password2" autocomplete="new-password" required></div>
+      <button class="btn btn-primary" type="submit">修改密码</button>
+    </form>
+    <div class="divider"></div>
+    <div class="kv"><span class="k">用户名</span><span class="v mono"><%= user.username %></span></div>
+    <div class="kv"><span class="k">注册时间</span><span class="v"><%= helpers.fmtDateTime(user.created_at) %></span></div>
+    <div class="kv"><span class="k">上次登录</span><span class="v"><%= helpers.fmtDateTime(user.last_login_at) %></span></div>
+  </div>
+</div>
+
+<div class="card" id="ai">
+  <div class="card-head">
+    <h2>🤖 AI 截图记账</h2>
+    <span class="chip <%= aiReady ? 'income' : '' %>"><%= aiReady ? '已配置' : '未配置' %></span>
+  </div>
+
+  <% if (!isAdmin) { %>
+    <div class="notice">AI 配置属于系统级设置，只有管理员可以修改。当前模型：<b><%= aiReady ? cfg.model : '未配置' %></b></div>
+  <% } else { %>
+    <div class="notice info mb16">
+      <b>推荐几个可直接用的接口（均为 OpenAI 兼容）：</b><br>
+      · <b>智谱 GLM</b>（有免费视觉模型）：<span class="mono">https://open.bigmodel.cn/api/paas/v4</span> · 模型 <span class="mono">glm-4v-flash</span><br>
+      · <b>阿里通义千问</b>：<span class="mono">https://dashscope.aliyuncs.com/compatible-mode/v1</span> · 模型 <span class="mono">qwen-vl-max</span><br>
+      · <b>DeepSeek</b>（纯文本，无视觉）：<span class="mono">https://api.deepseek.com/v1</span> · 模型 <span class="mono">deepseek-chat</span><br>
+      · <b>NAS 本地 Ollama</b>（数据不出局域网）：<span class="mono">http://你的NAS地址:11434/v1</span> · 模型 <span class="mono">qwen2.5vl:7b</span>
+    </div>
+
+    <form method="post" action="/settings/ai">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <div class="row wrap" style="gap:12px">
+        <div class="field" style="flex:2;min-width:250px">
+          <label>接口地址（Base URL）</label>
+          <input type="text" name="ai.base_url" id="ai-base-url" value="<%= cfg.baseUrl %>" placeholder="https://open.bigmodel.cn/api/paas/v4">
+          <div class="help">末尾不要带 /chat/completions，系统会自动补全</div>
+        </div>
+        <div class="field" style="flex:1;min-width:170px">
+          <label>模型名称</label>
+          <input type="text" name="ai.model" id="ai-model" value="<%= cfg.model %>" placeholder="glm-4v-flash">
+        </div>
+      </div>
+      <div class="field">
+        <label>API Key</label>
+        <%# 注意：真实 Key 与掩码都不回填到 value，避免用户只是改了别的字段却在保存时把掩码当成 Key 提交 %>
+        <input type="password" name="ai.api_key" id="ai-api-key" value=""
+               placeholder="<%= cfg.apiKey ? '已保存 API Key —— 留空即保持不变，要更换请直接粘贴新的' : '粘贴你的 API Key（本地 Ollama / 局域网模型可留空）' %>"
+               autocomplete="new-password">
+        <% if (cfg.apiKey) { %>
+          <div class="help">已保存 Key。此输入框故意不回填，留空保存 = 继续使用原 Key；勾选下方可清除。</div>
+          <label class="check mt8"><input type="checkbox" name="clear_api_key" value="1"> 清除已保存的 API Key（改用本地 / 局域网模型时可勾选）</label>
+        <% } %>
+      </div>
+      <div class="row wrap mb12" style="gap:18px">
+        <label class="check"><input type="checkbox" name="ai.enabled" value="1" <%= cfg.enabled ? 'checked' : '' %>> 启用 AI 识别</label>
+        <label class="check"><input type="checkbox" name="ai.vision" value="1" <%= cfg.vision ? 'checked' : '' %>> 模型支持图片（视觉）</label>
+        <label class="check"><input type="checkbox" name="ai.auto_save" value="1" <%= String(settings['ai.auto_save']) === 'true' ? 'checked' : '' %>> 识别后自动入库（不推荐）</label>
+      </div>
+      <div class="field" style="max-width:220px">
+        <label>超时时间（毫秒）</label>
+        <input type="number" name="ai.timeout_ms" value="<%= cfg.timeoutMs %>">
+        <div class="help">本地小模型推理较慢，可设为 180000</div>
+      </div>
+      <div class="row">
+        <button class="btn btn-primary" type="submit">保存配置</button>
+        <button class="btn" type="button" id="ai-test-btn">测试连接</button>
+        <a class="btn btn-ghost" href="/ai">去试试截图记账 →</a>
+      </div>
+      <div id="ai-test-result"></div>
+    </form>
+  <% } %>
+</div>
+
+<div class="card" id="api">
+  <div class="card-head">
+    <h2>🔑 开放 API（小龙虾 / 自动化）</h2>
+    <span class="chip"><%= apiTokens.length %> 个令牌</span>
+  </div>
+
+  <% if (newToken) { %>
+    <div class="notice" id="new-token-box" style="border:2px solid var(--ok,#52c41a)">
+      <b>✅ 令牌「<%= newToken.name %>」已创建</b> —— 明文仅本次展示，请立即复制保存：
+      <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
+        <code class="mono" id="new-token-value" data-token="<%= newToken.token %>"
+              style="flex:1;min-width:260px;padding:8px 12px;background:var(--bg-soft,#f5f5f5);border-radius:6px;word-break:break-all">••••••••••••••••••••••••</code>
+        <button class="btn btn-sm" type="button" id="token-toggle">显示</button>
+        <button class="btn btn-sm btn-primary" type="button" id="token-copy">复制令牌</button>
+      </div>
+      <div class="tiny muted mt8">刷新或离开本页后将无法再次查看（库中只存摘要），届时只能吊销后重新生成。</div>
+    </div>
+    <script>
+    (function () {
+      var code = document.getElementById('new-token-value');
+      if (!code) return;
+      var real = code.getAttribute('data-token');
+      var shown = false;
+      document.getElementById('token-toggle').addEventListener('click', function () {
+        shown = !shown;
+        code.textContent = shown ? real : '••••••••••••••••••••••••';
+        this.textContent = shown ? '隐藏' : '显示';
+      });
+      document.getElementById('token-copy').addEventListener('click', function () {
+        var btn = this;
+        function done() { btn.textContent = '已复制 ✓'; setTimeout(function () { btn.textContent = '复制令牌'; }, 2000); }
+        function fallback() {
+          var ta = document.createElement('textarea');
+          ta.value = real;
+          ta.style.cssText = 'position:fixed;opacity:0';
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand('copy'); done(); }
+          catch (e) { window.prompt('复制失败，请手动复制：', real); }
+          document.body.removeChild(ta);
+        }
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(real).then(done).catch(fallback);
+        } else { fallback(); }
+      });
+    })();
+    </script>
+  <% } %>
+
+  <div class="notice info mb12">
+    供<b>小龙虾（OpenClaw / PicoClaw）</b>、手机快捷指令等外部工具调用。鉴权方式：请求头带
+    <span class="mono">Authorization: Bearer &lt;令牌&gt;</span>。令牌明文只在创建时展示一次，库中仅存摘要，请妥善保管。
+  </div>
+
+  <form method="post" action="/settings/api-tokens" class="row mb12" style="gap:12px">
+    <input type="hidden" name="_csrf" value="<%= csrf %>">
+    <div class="field" style="flex:1;min-width:180px;margin:0">
+      <input type="text" name="name" placeholder="令牌名称（如：小龙虾）" maxlength="30" required>
+    </div>
+    <button class="btn btn-primary" type="submit">生成新令牌</button>
+  </form>
+
+  <% if (apiTokens.length) { %>
+    <div class="scroll-x">
+      <table class="table responsive">
+        <thead><tr><th>名称</th><th>尾号</th><th>最近使用</th><th>创建时间</th><th></th></tr></thead>
+        <tbody>
+          <% for (const t of apiTokens) { %>
+            <tr>
+              <td><%= t.name %></td>
+              <td class="mono">…<%= t.token_tail %></td>
+              <td><%= t.last_used_at ? helpers.fmtDateTime(t.last_used_at) : '从未使用' %></td>
+              <td><%= helpers.fmtDateTime(t.created_at) %></td>
+              <td>
+                <form method="post" action="/settings/api-tokens/<%= t.id %>/revoke" style="display:inline">
+                  <input type="hidden" name="_csrf" value="<%= csrf %>">
+                  <button class="btn btn-sm btn-danger" type="submit">吊销</button>
+                </form>
+              </td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+    </div>
+  <% } else { %>
+    <div class="muted tiny">还没有令牌。生成一个，然后在小龙虾技能里填入即可。</div>
+  <% } %>
+
+  <div class="divider"></div>
+  <div class="tiny muted mono" style="line-height:1.9">
+    # 连通测试<br>
+    curl http://127.0.0.1:8080/api/open/ping -H "Authorization: Bearer hl_xxxx"<br>
+    # 发截图 / 文字自动记账（confirm=true 直接入库）<br>
+    curl -X POST http://127.0.0.1:8080/api/open/ai/bill -H "Authorization: Bearer hl_xxxx" \<br>
+    &nbsp;&nbsp;-H "Content-Type: application/json" \<br>
+    &nbsp;&nbsp;-d '{"images":["data:image/png;base64,…"],"confirm":true}'<br>
+    # 直接记一笔<br>
+    curl -X POST http://127.0.0.1:8080/api/open/transactions -H "Authorization: Bearer hl_xxxx" \<br>
+    &nbsp;&nbsp;-H "Content-Type: application/json" \<br>
+    &nbsp;&nbsp;-d '{"type":"expense","amount":88,"category":"餐饮","account":"微信零钱","merchant":"肯德基","note":"晚餐"}'
+  </div>
+</div>
+
+<% if (isAdmin) { %>
+<div class="card" id="site">
+  <div class="card-head"><h2>站点与安全设置</h2></div>
+  <form method="post" action="/settings/site">
+    <input type="hidden" name="_csrf" value="<%= csrf %>">
+    <div class="row wrap" style="gap:12px">
+      <div class="field" style="flex:1;min-width:160px">
+        <label>站点名称</label>
+        <input type="text" name="site.name" value="<%= settings['site.name'] %>" maxlength="20">
+      </div>
+      <div class="field" style="flex:1;min-width:120px">
+        <label>本位币</label>
+        <select name="site.currency">
+          <% ['CNY','USD','EUR','HKD','JPY','SGD'].forEach(function(c){ %>
+            <option value="<%= c %>" <%= settings['site.currency'] === c ? 'selected' : '' %>><%= c %></option>
+          <% }); %>
+        </select>
+      </div>
+      <div class="field" style="flex:1;min-width:140px">
+        <label>登录失败上限（次）</label>
+        <input type="number" name="security.login_max_fail" min="3" max="50" value="<%= settings['security.login_max_fail'] %>">
+      </div>
+    </div>
+    <label class="check mb12"><input type="checkbox" name="site.allow_register" value="1" <%= settings['site.allow_register'] === 'true' ? 'checked' : '' %>> 开放自助注册（家庭使用建议关闭，改由邀请链接加入）</label>
+    <button class="btn btn-primary" type="submit">保存设置</button>
+  </form>
+</div>
+<% } %>
+
+<div class="card" id="env">
+  <div class="card-head"><h2>运行信息</h2></div>
+  <div class="grid grid-2">
+    <div>
+      <div class="kv"><span class="k">Node 版本</span><span class="v mono"><%= envInfo.node %></span></div>
+      <div class="kv"><span class="k">运行平台</span><span class="v mono"><%= envInfo.platform %></span></div>
+      <div class="kv"><span class="k">时区</span><span class="v mono"><%= envInfo.tz %></span></div>
+      <div class="kv"><span class="k">已运行</span><span class="v"><%= Math.floor(envInfo.uptime / 3600) %> 小时 <%= Math.floor((envInfo.uptime % 3600) / 60) %> 分</span></div>
+    </div>
+    <div>
+      <div class="kv"><span class="k">数据目录</span><span class="v mono" style="font-size:11px"><%= envInfo.dataDir %></span></div>
+      <div class="kv"><span class="k">数据库大小</span><span class="v"><%= (envInfo.dbSize / 1024).toFixed(1) %> KB</span></div>
+      <div class="kv"><span class="k">数据库文件</span><span class="v mono" style="font-size:11px">homeledger.db</span></div>
+      <div class="kv"><span class="k">备份方式</span><span class="v">复制 data 目录即可（<a href="/export">导出备份</a>）</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  document.querySelectorAll('.tabs a').forEach(function(a){
+    a.addEventListener('click', function(){
+      document.querySelectorAll('.tabs a').forEach(function(x){ x.classList.remove('active'); });
+      a.classList.add('active');
+    });
+  });
+  if (location.hash === '#ai') {
+    document.querySelectorAll('.tabs a').forEach(function(x){ x.classList.toggle('active', x.getAttribute('href') === '#ai'); });
+  }
+  if (location.hash === '#site') {
+    document.querySelectorAll('.tabs a').forEach(function(x){ x.classList.toggle('active', x.getAttribute('href') === '#site'); });
+  }
+  if (location.hash === '#api') {
+    document.querySelectorAll('.tabs a').forEach(function(x){ x.classList.toggle('active', x.getAttribute('href') === '#api'); });
+  }
+})();
+</script>

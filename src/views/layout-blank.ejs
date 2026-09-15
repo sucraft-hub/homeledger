@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="csrf" content="<%= csrf %>">
+<meta name="theme-color" content="#4f7cff">
+<title><%= title ? title + ' · ' + siteName : siteName %></title>
+<link rel="stylesheet" href="/static/css/app.css">
+<link rel="manifest" href="/static/manifest.webmanifest">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📒</text></svg>">
+</head>
+<body>
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="brand-logo">📒</div>
+      <div>
+        <b><%= siteName %></b>
+        <span>自托管 · 全类型记账 · AI 截图自动记账</span>
+      </div>
+    </div>
+    <% if (flash) { %>
+      <div class="flash <%= flash.type %>"><span><%= flash.message %></span></div>
+    <% } %>
+    <%- body %>
+  </div>
+</div>
+<script src="/static/js/app.js" defer></script>
+</body>
+</html>

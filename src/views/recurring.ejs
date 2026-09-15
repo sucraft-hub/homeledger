@@ -1,0 +1,124 @@
+<div class="notice info mb16">
+  周期账单适合房租、工资、会员订阅、房贷等固定收支。开启「自动记账」后，到期当天系统会自动生成记录；关闭则只提醒你手动确认。
+</div>
+
+<div class="grid grid-main">
+  <div>
+    <% if (!rules.length) { %>
+      <div class="card"><div class="empty"><span class="big">🔁</span>还没有周期账单<div class="small mt8">在右侧添加，例如「每月 1 号 房租 3500」</div></div></div>
+    <% } %>
+    <% rules.forEach(function(r){ %>
+      <div class="card">
+        <div class="row between">
+          <div>
+            <h2><%= r.name %>
+              <% if (!r.is_active) { %><span class="chip">已暂停</span><% } %>
+              <% if (r.auto_post) { %><span class="chip primary">自动记账</span><% } else { %><span class="chip warn">仅提醒</span><% } %>
+            </h2>
+            <div class="tiny muted mt8">
+              <%= r.freqLabel %><%= Number(r.interval_n) > 1 ? '（每 ' + r.interval_n + ' 期）' : '' %>
+              · 下次执行 <b><%= r.next_run_at %></b>
+              <% if (r.last_run_at) { %> · 上次 <%= helpers.fmtDate(r.last_run_at) %><% } %>
+            </div>
+          </div>
+          <div class="right">
+            <div class="amount" style="font-size:18px"><%= helpers.fmtAmount(r.total) %></div>
+            <div class="tiny muted"><%= r.itemLabels.length %> 项</div>
+          </div>
+        </div>
+
+        <div class="mt12">
+          <% r.itemLabels.forEach(function(i){ %>
+            <div class="row between small" style="padding:4px 0;border-bottom:1px dashed var(--border)">
+              <span><%= i.type_label %> · <%= i.category_path %> · <%= i.account_name %></span>
+              <span class="amount"><%= helpers.fmtAmount(i.amount_cents) %></span>
+            </div>
+          <% }); %>
+        </div>
+
+        <div class="row tiny mt12" style="gap:10px">
+          <form method="post" action="/recurring/<%= r.id %>/run" style="display:inline">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <button class="btn btn-sm" style="padding:2px 8px;font-size:11px">立即记一笔</button>
+          </form>
+          <form method="post" action="/recurring/<%= r.id %>/toggle" style="display:inline">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <button class="btn btn-sm btn-ghost" style="padding:0;font-size:11px"><%= r.is_active ? '暂停' : '启用' %></button>
+          </form>
+          <form method="post" action="/recurring/<%= r.id %>/delete" style="display:inline" data-confirm="删除周期账单「<%= r.name %>」？">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <button class="btn btn-sm btn-ghost" style="padding:0;font-size:11px;color:var(--expense)">删除</button>
+          </form>
+        </div>
+      </div>
+    <% }); %>
+  </div>
+
+  <div>
+    <div class="card sticky-side">
+      <div class="card-head"><h2>新建周期账单</h2></div>
+      <form method="post" action="/recurring" id="rec-form">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <div class="field">
+          <label>名称</label>
+          <input type="text" name="name" placeholder="例如：房租" required>
+        </div>
+
+        <div class="field">
+          <label>金额明细</label>
+          <div id="rec-items">
+            <div class="row rec-item mb8" style="gap:6px;flex-wrap:wrap">
+              <select name="item_type" style="flex:0 0 84px">
+                <option value="expense">支出</option>
+                <option value="income">收入</option>
+              </select>
+              <input type="text" name="item_amount" inputmode="decimal" placeholder="金额" style="flex:0 0 88px">
+              <select name="item_category_id" style="flex:1;min-width:110px">
+                <option value="">分类…</option>
+                <% form.expenseCats.forEach(function(c){ if (c.parent_id) { %><option value="<%= c.id %>">支·<%= c.path %></option><% } }); %>
+                <% form.incomeCats.forEach(function(c){ if (c.parent_id) { %><option value="<%= c.id %>">收·<%= c.path %></option><% } }); %>
+              </select>
+              <select name="item_account_id" style="flex:1;min-width:96px">
+                <option value="">账户…</option>
+                <% form.accounts.forEach(function(a){ %><option value="<%= a.id %>"><%= a.name %></option><% }); %>
+              </select>
+            </div>
+          </div>
+          <button type="button" class="btn btn-sm" id="rec-add">＋ 再加一项</button>
+        </div>
+
+        <div class="row wrap" style="gap:10px">
+          <div class="field" style="flex:1;min-width:100px">
+            <label>频率</label>
+            <select name="frequency">
+              <option value="monthly">每月</option>
+              <option value="weekly">每周</option>
+              <option value="yearly">每年</option>
+              <option value="daily">每天</option>
+            </select>
+          </div>
+          <div class="field" style="flex:1;min-width:100px">
+            <label>下次执行日</label>
+            <input type="date" name="next_run_at" value="<%= today %>">
+          </div>
+        </div>
+        <div class="row">
+          <label class="check"><input type="checkbox" name="auto_post" value="1" checked> 到期自动记账</label>
+        </div>
+        <button class="btn btn-primary btn-block mt12" type="submit">创建</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var wrap = document.getElementById('rec-items');
+  document.getElementById('rec-add').addEventListener('click', function(){
+    var first = wrap.querySelector('.rec-item');
+    var clone = first.cloneNode(true);
+    clone.querySelectorAll('input').forEach(function(i){ i.value = ''; });
+    wrap.appendChild(clone);
+  });
+})();
+</script>

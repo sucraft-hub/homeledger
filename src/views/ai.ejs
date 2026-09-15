@@ -1,0 +1,100 @@
+<script>
+  window.__AI_FORM__ = {
+    categories: <%- JSON.stringify(form.expenseCats.concat(form.incomeCats).map(function(c){ return { id: c.id, name: c.name, path: c.parent_id ? c.path : c.name, kind: c.kind }; })) %>,
+    accounts: <%- JSON.stringify(form.accounts.map(function(a){ return { id: a.id, name: a.name, icon: a.icon }; })) %>
+  };
+</script>
+
+<% if (!ready) { %>
+  <div class="notice warn mb16">
+    <b>尚未配置 AI 模型。</b>当前截图上传后会使用<b>内置规则引擎</b>解析（对结构清晰的账单文字效果不错，但读图能力有限）。
+    想获得真正的「截图即记账」体验，请到 <a href="/settings#ai">设置 → AI 记账</a> 填入一个支持视觉的模型接口；也可以填 NAS 上自建的 Ollama 地址。
+  </div>
+<% } else if (!usable) { %>
+  <div class="notice warn mb16">
+    已填写模型 <b><%= cfg.model %></b>，但 AI 识别处于<b>关闭</b>状态，当前仍使用内置规则引擎。可在 <a href="/settings#ai">设置 → AI 记账</a> 中勾选「启用 AI 识别」。
+  </div>
+<% } else { %>
+  <div class="notice info mb16">
+    已连接模型 <b><%= cfg.model %></b>（<%= cfg.baseUrl %>）· 视觉能力 <%= cfg.vision ? '已开启' : '已关闭' %> · 自动保存 <%= cfg.autoSave ? '已开启（识别后直接入库）' : '关闭（识别后需你确认）' %>
+  </div>
+<% } %>
+
+<div class="grid grid-main">
+  <div>
+    <div class="card">
+      <div class="card-head">
+        <h2>上传账单截图</h2>
+        <span class="muted small">支持拖拽、点击选择，或直接 Ctrl+V 粘贴</span>
+      </div>
+
+      <div class="dropzone" id="ai-dropzone">
+        <span class="big">📷</span>
+        <div class="bold">把账单截图拖到这里，或点击选择</div>
+        <div class="muted small mt8">支持支付宝 / 微信 / 银行 App / 购物订单截图，一次最多 6 张，每张不超过 8MB</div>
+        <input type="file" id="ai-file" accept="image/*" multiple class="hidden">
+      </div>
+
+      <div class="thumbs" id="ai-thumbs"></div>
+
+      <div class="field mt16">
+        <label>或者补充账单文字（可选，能显著提高识别准确率）</label>
+        <textarea id="ai-text" rows="3" placeholder="例如：&#10;9月14日 午饭 麦当劳 35.5 支付宝&#10;9月14日 打车 28 微信"></textarea>
+      </div>
+
+      <div class="row">
+        <button class="btn btn-primary btn-lg" id="ai-scan-btn" type="button" disabled>🤖 开始识别</button>
+        <a class="btn btn-lg" href="/transactions/new">手动记一笔</a>
+      </div>
+    </div>
+
+    <div id="ai-result"></div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>文字快速记账</h2>
+        <span class="muted small">一行一笔，支持自然语言</span>
+      </div>
+      <div class="row">
+        <input type="text" id="ai-quick-text" placeholder="午饭 35 支付宝" style="flex:1">
+        <button class="btn btn-primary" id="ai-text-quick" type="button">解析</button>
+      </div>
+      <div class="notice small mt12">
+        示例：<span class="mono">昨天晚饭 88 微信</span> / <span class="mono">打车 26.5</span> / <span class="mono">工资 12000</span> / <span class="mono">房租 3500 银行卡</span>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-head"><h2>识别原理</h2></div>
+      <ol class="small muted" style="padding-left:18px;line-height:2">
+        <li>截图上传到你的 NAS，<b>不会发给第三方存储</b></li>
+        <li>图片以 Base64 直接送入你配置的视觉模型接口</li>
+        <li>模型返回结构化 JSON（金额 / 日期 / 商家 / 分类 / 账户）</li>
+        <li>你在页面上核对修正后一键入库，原图作为附件留存</li>
+      </ol>
+      <div class="notice small mt12">
+        未配置模型时使用内置规则引擎：从文字中提取金额、日期、支付方式与分类关键词，完全离线可用。
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>识别历史</h2><a class="btn btn-sm btn-ghost" href="/attachments">全部 →</a></div>
+      <% if (!recent.length) { %>
+        <div class="empty" style="padding:18px"><span class="big">🖼️</span>还没有上传过截图</div>
+      <% } %>
+      <div class="gallery">
+        <% recent.forEach(function(a){ %>
+          <figure>
+            <img src="/uploads/<%= a.rel_path %>" alt="账单截图" data-zoom="/uploads/<%= a.rel_path %>" loading="lazy">
+            <figcaption>
+              <b><%= a.amount_cents !== null && a.amount_cents !== undefined ? helpers.fmtAmount(a.amount_cents) : '未关联' %></b>
+              <%= a.merchant || (a.category_name ? a.category_icon + ' ' + a.category_name : helpers.fmtDate(a.created_at)) %>
+            </figcaption>
+          </figure>
+        <% }); %>
+      </div>
+    </div>
+  </div>
+</div>

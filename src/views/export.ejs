@@ -1,0 +1,75 @@
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h2>📤 导出账单（CSV）</h2></div>
+    <p class="small muted mb12">导出为 UTF-8 CSV，可直接用 Excel / WPS 打开，也可用于迁移到其他记账软件。</p>
+    <form method="get" action="/export/csv">
+      <div class="row wrap" style="gap:12px">
+        <div class="field" style="flex:1;min-width:140px">
+          <label>起始日期</label>
+          <input type="date" name="from" value="<%= today.slice(0,4) %>-01-01">
+        </div>
+        <div class="field" style="flex:1;min-width:140px">
+          <label>结束日期</label>
+          <input type="date" name="to" value="<%= today %>">
+        </div>
+      </div>
+      <div class="row wrap" style="gap:12px">
+        <div class="field" style="flex:1;min-width:140px">
+          <label>类型（可选）</label>
+          <select name="type">
+            <option value="">全部类型</option>
+            <% TXN_TYPES.forEach(function(t){ %><option value="<%= t.key %>"><%= t.label %></option><% }); %>
+          </select>
+        </div>
+        <div class="field" style="flex:1;min-width:140px">
+          <label>账户（可选）</label>
+          <select name="account_id">
+            <option value="">全部账户</option>
+            <% form.accounts.forEach(function(a){ %><option value="<%= a.id %>"><%= a.name %></option><% }); %>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-primary" type="submit">下载 CSV</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>🧾 导出完整数据（JSON）</h2></div>
+    <p class="small muted mb12">包含当前账本的账户、分类、交易、预算、周期账单、借贷、储蓄目标等全部结构化数据，适合长期归档或二次开发。</p>
+    <a class="btn btn-primary" href="/export/json">下载 JSON</a>
+
+    <div class="divider"></div>
+    <div class="card-head"><h2>💾 数据库文件备份</h2></div>
+    <p class="small muted mb12">
+      下载整个 SQLite 数据库文件。<b>最推荐的做法</b>：直接在 NAS 上对 <span class="mono">data/</span> 目录做快照或定时复制——整个数据目录就包含了会计数据和账单截图。
+    </p>
+    <% if (isAdmin) { %>
+      <a class="btn" href="/backup/db">下载 .db 数据库</a>
+    <% } else { %>
+      <div class="notice small">仅管理员可下载数据库文件。</div>
+    <% } %>
+  </div>
+</div>
+
+<% if (isAdmin) { %>
+<div class="card">
+  <div class="card-head"><h2>♻️ 从备份恢复</h2><span class="chip warn">高风险操作</span></div>
+  <div class="notice warn mb12">
+    <b>恢复会覆盖当前全部数据。</b>系统会先把当前数据另存为一份安全备份，然后把上传的数据库放到数据目录并生成一份操作说明，
+    你需要按说明手动替换文件并重启容器。恢复前请务必先下载一份当前数据。
+  </div>
+  <div class="row wrap">
+    <input type="file" id="restore-file" accept=".db,application/octet-stream" style="max-width:340px">
+  </div>
+</div>
+<% } %>
+
+<div class="card">
+  <div class="card-head"><h2>NAS 部署与备份建议</h2></div>
+  <div class="small" style="line-height:2">
+    <div>1. 用 Docker Compose 部署时把 <span class="mono">./data</span> 挂到 NAS 的共享文件夹，例如 <span class="mono">/vol1/1000/docker/homeledger/data</span></div>
+    <div>2. 在飞牛 NAS 的「备份/快照」里对这个目录设置定时任务，例如每天凌晨 3 点</div>
+    <div>3. 需要迁移时，把整个 <span class="mono">data</span> 目录拷到新设备的同一位置即可，无需额外导入导出</div>
+    <div>4. 只恢复账目录数据、不要截图时，可以只拷 <span class="mono">homeledger.db</span></div>
+  </div>
+</div>
