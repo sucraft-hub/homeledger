@@ -45,9 +45,24 @@ wizard/               安装向导（空）
 
 ## 数据与升级
 
-- 数据目录：`${TRIM_PKGVAR}/data`（SQLite + 截图附件），飞牛托管
-- **覆盖安装升级不丢数据**；卸载应用才会清除
-- 备份：在 NAS 上直接拷贝该目录，或用应用内「系统管理 → 备份」
+**应用代码与数据分处两个目录**，安装动作只替换代码：
+
+| 内容 | 目录 | 安装/升级时 |
+| --- | --- | --- |
+| 应用代码（server.js、src、runtime/node） | `/vol1/@appcenter/homeledger/app` | 整体替换（版本变新才生效） |
+| 账本数据（`homeledger.db` + `uploads/` 截图） | `/vol1/@appdata/homeledger/data` | **不动** |
+
+- **覆盖安装 / 升级不丢数据**：应用中心 → 手动安装 → 选新的 `.fpk` 覆盖即可
+- `cmd/main` 启动时的数据目录固定为 `${TRIM_PKGVAR}/data`，安装脚本（`uninstall_*` / `upgrade_*`）都是空实现，从不触碰数据目录
+- **会丢数据的只有卸载**：飞牛卸载第三方应用时会询问是否「清除本地数据」，勾选即删除 `@appdata/homeledger`。所以升级时**不要先卸载再装**
+- 备份两条路：
+  1. 应用内「系统管理 → 备份」→ 下载一份当前数据（含全部账本与截图）
+  2. SSH 直接拷贝数据目录：
+     ```bash
+     find /vol1 -name homeledger.db 2>/dev/null   # 先确认路径
+     cp -r /vol1/@appdata/homeledger/data /vol1/某个安全目录/homeledger-backup-$(date +%F)
+     ```
+- 恢复：停用应用 → 把备份内容放回 `data/` → 启动（或用应用内「系统管理 → 恢复备份」上传）
 
 ## 已知限制
 

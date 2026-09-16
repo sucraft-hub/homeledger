@@ -210,7 +210,7 @@ curl -s "$BASE_URL/models" -H "Authorization: Bearer $API_KEY"
 1. 下载 `.fpk`（见 GitHub Releases，或自行打包：`bash packaging/fpk/build-fpk.sh`）
 2. 飞牛桌面 → **应用中心** → 右上角 **设置** → **手动安装应用** → 选择 `.fpk`
 3. 安装后桌面出现「家账簿」图标，点击在浏览器打开，默认端口 **5111**
-4. 账本数据存放在飞牛托管的应用数据目录（`TRIM_PKGVAR/data`），**升级/覆盖安装不丢数据**，卸载才会清除
+4. 账本数据存放在飞牛托管的应用数据目录（`TRIM_PKGVAR/data`），**升级/覆盖安装不丢数据**；只有卸载（且勾选「清除本地数据」）才会删除 —— 升级请**直接覆盖安装，不要先卸载**
 
 打包细节见 `packaging/fpk/README.md`。
 
