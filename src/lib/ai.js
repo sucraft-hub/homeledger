@@ -531,7 +531,15 @@ async function analyzeBill({ images = [], text = '', ledgerId }) {
     try {
       const content = [{ type: 'text', text: buildUserPrompt({ text, ctx, today }) }];
       for (const img of images.slice(0, 6)) {
-        content.push({ type: 'image_url', image_url: { url: img.dataUrl } });
+        // 兼容两种入参：纯 dataURL 字符串（开放 API / 小龙虾）与 { dataUrl } 对象（网页端）
+        const url = typeof img === 'string' ? img : String((img && (img.dataUrl || img.url)) || '');
+        if (!url) continue;
+        content.push({ type: 'image_url', image_url: { url } });
+      }
+      if (content.length === 1 && images.length) {
+        // 图片全部为空 → 不要带着空图片去打模型（会返回 400）
+        warnings.push('图片数据为空，已跳过视觉识别（请检查上传/传参格式）。');
+        throw new Error('图片数据为空');
       }
       const out = await callModel(
         [{ role: 'system', content: SYSTEM_PROMPT }, { role: 'user', content }],
@@ -549,7 +557,7 @@ async function analyzeBill({ images = [], text = '', ledgerId }) {
       }
       warnings.push('模型未返回可识别的交易，已尝试规则解析兜底。');
     } catch (e) {
-      warnings.push(`AI 调用失败（${e.message}），已降级为规则解析。`);
+      if (e.message !== '图片数据为空') warnings.push(`AI 调用失败（${e.message}），已降级为规则解析。`);
     }
   } else if (images.length && !cfg.vision) {
     warnings.push('当前模型未开启视觉能力，无法读取截图内容。');

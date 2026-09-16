@@ -1,6 +1,6 @@
 {
   "name": "homeledger",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "private": true,
   "description": "家账簿 HomeLedger —— 面向 NAS 自托管的全能记账系统（纯后端服务端渲染）",
   "main": "server.js",

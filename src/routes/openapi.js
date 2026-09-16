@@ -161,17 +161,21 @@ router.post('/ai/bill', async (req, res) => {
   const { ledgerId, userId } = req.openAuth;
   const body = req.body || {};
   try {
-    const images = Array.isArray(body.images) ? body.images.slice(0, MAX_IMAGES) : [];
+    const rawImages = Array.isArray(body.images) ? body.images.slice(0, MAX_IMAGES) : [];
     const text = String(body.text || '').slice(0, 4000);
-    if (!images.length && !text) {
+    if (!rawImages.length && !text) {
       return res.status(400).json({ ok: false, error: '请提供 images（dataURL 数组）或 text 账单文字' });
     }
-    for (const img of images) {
-      const m = /^data:[^;]+;base64,(.+)$/.exec(String(img.dataUrl || img || ''));
+    // 统一规范成 { dataUrl }：既接受纯 dataURL 字符串（推荐），也接受 { dataUrl } 对象
+    const images = [];
+    for (const img of rawImages) {
+      const url = String((img && (img.dataUrl || img.url)) || img || '');
+      const m = /^data:([^;]+);base64,(.+)$/.exec(url);
       if (!m) return res.status(400).json({ ok: false, error: 'images 元素必须是 dataURL（data:image/...;base64,xxx）' });
-      if (Buffer.byteLength(m[1], 'base64') > MAX_IMAGE_BYTES) {
+      if (Buffer.byteLength(m[2], 'base64') > MAX_IMAGE_BYTES) {
         return res.status(400).json({ ok: false, error: '单张图片请小于 8MB' });
       }
+      images.push({ dataUrl: url });
     }
 
     const result = await ai.analyzeBill({ images, text, ledgerId });

@@ -156,6 +156,7 @@ def main():
             shutil.copytree(os.path.join(src, item), os.path.join(hl, item))
     os.makedirs(os.path.join(app_dir, "runtime"), exist_ok=True)
     os.makedirs(os.path.join(app_dir, "ui", "images"), exist_ok=True)
+    os.makedirs(os.path.join(outer_dir, "wizard"), exist_ok=True)
 
     # 2. 外层固定文件（manifest/privilege/resource/回调脚本缺失时自动生成）
     pkg = os.path.join(os.path.dirname(os.path.abspath(__file__)))
