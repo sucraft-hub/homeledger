@@ -6,6 +6,7 @@ const auth = require('../lib/auth');
 const txn = require('../lib/txn');
 const fd = require('../lib/formdata');
 const u = require('../lib/util');
+const att = require('../lib/attachments');
 
 const router = express.Router();
 
@@ -132,6 +133,7 @@ router.get('/:id/edit', auth.requireLogin, auth.requireLedgerWrite, (req, res) =
     title: '编辑记录', activeNav: 'transactions', mode: 'edit', form, t,
     splitRows: txn.splitsOf(t.id),
     splits: txn.splitsOf(t.id),
+    images: att.listByTxn(t.id),
     back: req.query.back || '/transactions',
   });
 });

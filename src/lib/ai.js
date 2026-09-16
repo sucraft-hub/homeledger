@@ -591,10 +591,79 @@ async function testConnection() {
   }
 }
 
+/* ------------------------------ 可用模型列表 ------------------------------ */
+
+/**
+ * 按模型名猜「能不能读图」。网关的 /models 一般不返回模态信息，
+ * 只能靠命名习惯判断，判断不出时返回 null 交给人决定（宁可不猜，不要误导）。
+ */
+const NON_CHAT_HINTS = /(embedding|bge-|rerank|whisper|tts|dall-e|stable-diffusion|moderation|speech)/i;
+const VISION_HINTS = /(vl|vision|[0-9]v-|[0-9]v\b|omni|gpt-4o|gpt-4\.1|gpt-5|claude|gemini|internvl|llava|minicpm-v|moondream|pixtral)/i;
+
+function guessVision(modelId) {
+  const id = String(modelId || '');
+  if (NON_CHAT_HINTS.test(id)) return false;
+  if (VISION_HINTS.test(id)) return true;
+  return null;
+}
+
+/**
+ * 拉取 {baseUrl}/models 的可用模型列表
+ * @param {{baseUrl?:string, apiKey?:string}} [override] 可用页面上「未保存」的值去试拉，留空则用已保存配置
+ * @returns {Promise<{baseUrl:string, count:number, models:Array<{id:string, owned_by:string|null, vision:boolean|null}>}>}
+ */
+async function listModels(override = {}) {
+  const cfg = getAiConfig();
+  const baseUrl = String(override.baseUrl || cfg.baseUrl || '').trim().replace(/\/+$/, '');
+  const given = sanitizeSecret(override.apiKey || '');
+  const apiKey = given || cfg.apiKey;
+
+  if (!baseUrl) throw new Error('请先填写接口地址（Base URL）');
+  if (!isHeaderSafe(baseUrl)) throw new Error('接口地址含有非法字符（可能带入了中文或全角符号），请重新填写');
+  if (apiKey && !isHeaderSafe(apiKey)) throw new Error('API Key 含有非法字符（复制时可能带入了全角符号），请重新粘贴');
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
+  try {
+    const res = await fetch(`${baseUrl}/models`, {
+      headers: { Accept: 'application/json', ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}) },
+      signal: ctrl.signal,
+    });
+    const raw = await res.text();
+    if (!res.ok) {
+      let msg = raw.slice(0, 300);
+      try { msg = JSON.parse(raw).error?.message || msg; } catch { /* 原样展示 */ }
+      if (!apiKey && (res.status === 401 || res.status === 403)) msg += '（该接口需要 API Key，请填写后再试）';
+      if (res.status === 404) msg += '（该网关可能未实现 /models 接口，请手动填写模型名）';
+      throw new Error(`获取模型列表失败：HTTP ${res.status} ${msg}`);
+    }
+    let data;
+    try { data = JSON.parse(raw); } catch { throw new Error('模型列表返回内容不是 JSON'); }
+    const arr = Array.isArray(data) ? data : (data.data || data.models || []);
+    const models = [];
+    for (const m of arr) {
+      const id = typeof m === 'string' ? m : (m && (m.id || m.name || m.model));
+      if (!id) continue;
+      models.push({
+        id: String(id),
+        owned_by: (m && typeof m === 'object' && m.owned_by) || null,
+        vision: guessVision(id),
+      });
+    }
+    models.sort((a, b) => a.id.localeCompare(b.id));
+    return { baseUrl, count: models.length, models };
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('获取模型列表超时，请检查接口地址是否可达');
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 module.exports = {
   getAiConfig, isAiReady, isAiUsable, isLocalUrl, analyzeBill, testConnection,
   classifyByKeywords, guessAccountName, parseDateWords, parseTextByRules,
   resolveCategoryId, resolveAccountId, normalizeItem, buildContext,
-  extractAmount, cleanMerchant, callModel,
+  extractAmount, cleanMerchant, callModel, listModels, guessVision,
   isHeaderSafe, isMaskedSecret, sanitizeSecret,
 };

@@ -6,11 +6,12 @@
  */
 const crypto = require('node:crypto');
 const express = require('express');
-const { get, run, nowStr, todayStr, TXN_TYPES } = require('../db');
+const { all, get, run, nowStr, todayStr, TXN_TYPES } = require('../db');
 const auth = require('../lib/auth');
 const ai = require('../lib/ai');
 const txn = require('../lib/txn');
 const fd = require('../lib/formdata');
+const att = require('../lib/attachments');
 
 const router = express.Router();
 
@@ -178,14 +179,30 @@ router.post('/ai/bill', async (req, res) => {
       images.push({ dataUrl: url });
     }
 
-    const result = await ai.analyzeBill({ images, text, ledgerId });
     const confirm = body.confirm === true || body.confirm === 'true' || body.confirm === 1;
+    // 图片留档：入库时必然保存并关联；草稿模式默认不留档（试探性调用不堆垃圾），传 save_images=true 可强制留档
+    const wantSave = confirm || body.save_images === true || body.save_images === 'true' || body.save_images === 1;
+    const savedImages = [];
+    const saveWarnings = [];
+    if (wantSave) {
+      for (const img of images) {
+        try {
+          savedImages.push(att.saveDataUrlImage({ dataUrl: img.dataUrl, ledgerId, userId }));
+        } catch (e) {
+          saveWarnings.push(`有图片保存失败（${e.message}），识别继续。`);
+        }
+      }
+    }
+
+    const result = await ai.analyzeBill({ images, text, ledgerId });
+    const warnings = [...(result.warnings || []), ...saveWarnings];
 
     if (!confirm) {
       return res.json({
         ok: true, engine: result.engine, model: result.model || null,
-        warnings: result.warnings || [], drafts: result.items, confirmed: false,
-        hint: '检查 drafts 无误后，用 confirm=true 重新调用即可直接入库',
+        warnings, drafts: result.items, confirmed: false,
+        images: savedImages.map((s) => ({ id: s.id, path: `/uploads/${s.rel}`, size: s.size, txn_id: null })),
+        hint: '检查 drafts 无误后，用 confirm=true 重新调用即可直接入库（图片会随记录一起保存并关联）',
       });
     }
 
@@ -220,19 +237,65 @@ router.post('/ai/bill', async (req, res) => {
         errors.push(`${it.merchant || it.note || '一笔'}：${e.message}`);
       }
     }
+    // 账单截图落到对应记录上：数量一致时一图一笔，否则整组图挂第一笔
+    const linked = att.linkImagesToTxns({ ledgerId, imageIds: savedImages.map((s) => s.id), txnIds: created });
+
     auth.audit(req, 'api.ai.bill', {
-      ledgerId, detail: `开放API·${req.openAuth.tokenName} ${result.engine} 识别并入库 ${created.length} 笔`,
+      ledgerId, detail: `开放API·${req.openAuth.tokenName} ${result.engine} 识别并入库 ${created.length} 笔，图片 ${savedImages.length} 张`,
     });
     res.json({
       ok: created.length > 0,
       engine: result.engine, model: result.model || null,
-      warnings: result.warnings || [],
+      warnings,
       accounts_created: createdAccounts,
       confirmed: true, created: created.length, ids: created, errors,
+      images: savedImages.map((s) => ({
+        id: s.id,
+        path: `/uploads/${s.rel}`,
+        size: s.size,
+        txn_id: (linked.find((l) => l.image_id === s.id) || {}).txn_id ?? null,
+      })),
     });
   } catch (e) {
     res.status(400).json({ ok: false, error: e.message });
   }
+});
+
+/* ---------------------------- 记录 / 截图回查 ----------------------------- */
+
+/** 最近记账（含关联的账单截图），便于外部工具在聊天里回执「记好了 + 原图」 */
+router.get('/transactions/recent', (req, res) => {
+  const { ledgerId } = req.openAuth;
+  const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
+  const rows = all(
+    `SELECT t.id, t.type, t.amount_cents, t.currency, t.txn_date, t.merchant, t.note, t.source, t.created_at,
+            c.name AS category_name, a.name AS account_name
+     FROM transactions t
+     LEFT JOIN categories c ON c.id = t.category_id
+     LEFT JOIN accounts a ON a.id = t.account_id
+     WHERE t.ledger_id = ? AND t.deleted_at IS NULL
+     ORDER BY t.txn_date DESC, t.id DESC LIMIT ?`,
+    ledgerId, limit
+  );
+  const imgMap = att.listByTxnIds(rows.map((r) => r.id));
+  res.json({
+    ok: true,
+    count: rows.length,
+    transactions: rows.map((r) => ({
+      ...r,
+      images: (imgMap.get(Number(r.id)) || []).map((i) => ({ id: i.id, path: `/uploads/${i.rel_path}`, size: i.size })),
+    })),
+  });
+});
+
+/** 取回某张账单截图（需令牌；网页端 /uploads/<rel_path> 同样可直接访问） */
+router.get('/attachments/:id', (req, res) => {
+  const { ledgerId } = req.openAuth;
+  const found = att.resolveFile(ledgerId, req.params.id);
+  if (!found) return res.status(404).json({ ok: false, error: '截图不存在' });
+  res.type(found.row.mime || 'application/octet-stream');
+  res.setHeader('Cache-Control', 'private, max-age=86400');
+  res.sendFile(found.abs);
 });
 
 module.exports = router;

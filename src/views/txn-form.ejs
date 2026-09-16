@@ -222,6 +222,25 @@
   </div>
 </form>
 
+<% if (mode === 'edit' && typeof images !== 'undefined' && images.length) { %>
+  <div class="card" id="txn-images">
+    <div class="card-head">
+      <h2>📎 关联账单截图（<%= images.length %>）</h2>
+      <a class="btn btn-sm btn-ghost" href="/attachments">全部截图 →</a>
+    </div>
+    <div class="gallery">
+      <% images.forEach(function(img){ %>
+        <figure>
+          <img src="<%= img.url %>" alt="账单截图" data-zoom="<%= img.url %>" loading="lazy">
+          <figcaption>
+            <div class="tiny"><%= helpers.fmtDateTime(img.created_at) %> · <%= Math.round((img.size || 0) / 1024) %> KB</div>
+          </figcaption>
+        </figure>
+      <% }); %>
+    </div>
+  </div>
+<% } %>
+
 <script>
 (function(){
   // 类型相关的字段显隐（服务端已渲染，JS 仅做交互增强）

@@ -174,6 +174,22 @@ router.post('/api/ai/test', auth.requireLogin, require('../lib/auth').requireAdm
   res.json(r.ok ? { ok: true, message: '连接成功，模型响应正常', raw: r.raw } : { ok: false, error: r.error });
 });
 
+/**
+ * 拉取可用模型列表（只查询、不写库）
+ * 允许带上页面上还没保存的 base_url / api_key，方便「先填地址 → 拉列表 → 选模型 → 保存」
+ */
+router.post('/api/ai/models', auth.requireLogin, require('../lib/auth').requireAdmin, async (req, res) => {
+  try {
+    const out = await ai.listModels({
+      baseUrl: String(req.body.base_url || '').trim(),
+      apiKey: String(req.body.api_key == null ? '' : req.body.api_key).trim(),
+    });
+    res.json({ ok: true, ...out });
+  } catch (e) {
+    res.json({ ok: false, error: e.message });
+  }
+});
+
 /* ---------------------------------- 账本 ---------------------------------- */
 
 router.get('/ledgers', auth.requireLogin, (req, res) => {

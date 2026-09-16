@@ -1,44 +1,14 @@
 'use strict';
 /** AI 记账：截图识别、文本识别、草稿确认入库 */
-const fs = require('node:fs');
-const path = require('node:path');
 const express = require('express');
-const { all, get, run, nowStr, todayStr, DATA_DIR } = require('../db');
+const { all, get, run, todayStr } = require('../db');
 const auth = require('../lib/auth');
 const ai = require('../lib/ai');
 const txn = require('../lib/txn');
 const fd = require('../lib/formdata');
-const u = require('../lib/util');
+const att = require('../lib/attachments');
 
 const router = express.Router();
-
-const MIME_EXT = {
-  'image/png': 'png', 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/webp': 'webp',
-  'image/gif': 'gif', 'image/bmp': 'bmp', 'image/heic': 'heic',
-};
-const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
-
-/** 把 dataURL 存成本地文件，返回记录 */
-function saveImage({ dataUrl, ledgerId, userId, name }) {
-  const m = /^data:([^;]+);base64,(.+)$/.exec(String(dataUrl || ''));
-  if (!m) throw new Error('图片格式无法识别，请重新选择');
-  const mime = m[1].toLowerCase();
-  const buf = Buffer.from(m[2], 'base64');
-  if (buf.length > MAX_IMAGE_BYTES) throw new Error('单张图片请小于 8MB');
-  const ext = MIME_EXT[mime] || 'png';
-  const dir = path.join(DATA_DIR, 'uploads', todayStr().slice(0, 4) + todayStr().slice(5, 7));
-  fs.mkdirSync(dir, { recursive: true });
-  const fileName = `${Date.now()}_${u.uid(8)}.${ext}`;
-  const abs = path.join(dir, fileName);
-  fs.writeFileSync(abs, buf);
-  const rel = path.relative(path.join(DATA_DIR, 'uploads'), abs).split(path.sep).join('/');
-  const info = run(
-    `INSERT INTO attachments (ledger_id, txn_id, user_id, kind, file_name, rel_path, mime, size, ai_status, created_at)
-     VALUES (?,NULL,?,?,?,?,?,?,?,?)`,
-    ledgerId, userId, 'screenshot', name || fileName, rel, mime, buf.length, 'pending', nowStr()
-  );
-  return { id: info.lastInsertRowid, rel, url: `/uploads/${rel}`, size: buf.length };
-}
 
 /* --------------------------------- 页面 ---------------------------------- */
 
@@ -72,7 +42,7 @@ router.post('/api/ai/scan', auth.requireLogin, auth.requireLedgerWrite, async (r
 
     const saved = [];
     for (const img of images) {
-      saved.push(saveImage({ dataUrl: img.dataUrl, ledgerId, userId: req.session.userId, name: img.name }));
+      saved.push(att.saveDataUrlImage({ dataUrl: img.dataUrl, ledgerId, userId: req.session.userId, name: img.name }));
     }
 
     const result = await ai.analyzeBill({ images, text, ledgerId });
@@ -140,15 +110,10 @@ router.post('/api/ai/confirm', auth.requireLogin, auth.requireLedgerWrite, (req,
   }
 
   // 附件关联：数量一致时一一对应，否则全部挂到第一笔
-  if (created.length && imageIds.length) {
-    imageIds.forEach((aid, i) => {
-      const target = created.length === imageIds.length ? created[i] : created[0];
-      run('UPDATE attachments SET txn_id = ?, ai_status = ? WHERE id = ? AND ledger_id = ?', target, 'linked', aid, ledgerId);
-    });
-  }
+  const linked = att.linkImagesToTxns({ ledgerId, imageIds, txnIds: created });
 
   auth.audit(req, 'ai.confirm', { ledgerId, detail: `入库 ${created.length} 笔，失败 ${errors.length}` });
-  res.json({ ok: created.length > 0, created: created.length, ids: created, errors, redirect: errors.length ? null : '/transactions' });
+  res.json({ ok: created.length > 0, created: created.length, ids: created, linked, errors, redirect: errors.length ? null : '/transactions' });
 });
 
 /* ------------------------------ 文本快速识别 ------------------------------ */
@@ -195,10 +160,8 @@ router.get('/attachments', auth.requireLogin, (req, res) => {
 
 router.post('/attachments/:id/delete', auth.requireLogin, auth.requireLedgerWrite, (req, res) => {
   const ledgerId = Number(res.locals.ledger.id);
-  const a = get('SELECT * FROM attachments WHERE id = ? AND ledger_id = ?', Number(req.params.id), ledgerId);
-  if (a) {
-    try { fs.unlinkSync(path.join(DATA_DIR, 'uploads', a.rel_path)); } catch { /* 文件可能已不存在 */ }
-    run('DELETE FROM attachments WHERE id = ?', a.id);
+  if (att.removeById(ledgerId, req.params.id)) {
+    auth.audit(req, 'attachment.delete', { ledgerId, entity: 'attachment', entityId: Number(req.params.id) });
   }
   if (req.body._json === '1') return res.json({ ok: true });
   res.flash('success', '截图已删除');

@@ -476,6 +476,63 @@
         else { out.className = 'notice warn mt8'; out.textContent = '❌ 连接失败：' + res.error; }
       });
     }
+
+    /* 获取可用模型：读 /models → 下拉选择 → 联动「模型支持图片（视觉）」勾选 */
+    const modelsBtn = $('#ai-models-btn');
+    if (modelsBtn) {
+      const sel = $('#ai-model-select');
+      const modelInput = $('#ai-model');
+      const out = $('#ai-models-result');
+      const visionBox = $('input[name="ai.vision"]');
+
+      modelsBtn.addEventListener('click', async () => {
+        modelsBtn.disabled = true;
+        out.className = 'notice info mt8';
+        out.textContent = '正在读取该接口的模型列表…';
+        const res = await postJson('/api/ai/models', {
+          base_url: ($('#ai-base-url') || {}).value,
+          api_key: ($('#ai-api-key') || {}).value,
+        });
+        modelsBtn.disabled = false;
+        if (!res.ok) { out.className = 'notice warn mt8'; out.textContent = '❌ ' + res.error; return; }
+        if (!res.models || !res.models.length) {
+          out.className = 'notice warn mt8';
+          out.textContent = '该接口没有返回任何模型，请手动填写模型名';
+          return;
+        }
+        sel.textContent = '';
+        const ph = document.createElement('option');
+        ph.value = '';
+        ph.textContent = '— 选择模型（共 ' + res.models.length + ' 个）—';
+        sel.appendChild(ph);
+        res.models.forEach((m) => {
+          const o = document.createElement('option');
+          o.value = m.id;
+          o.textContent = m.id + (m.vision === true ? '  ✅ 可读图' : (m.vision === false ? '  （非对话模型）' : ''));
+          if (m.vision === true) o.dataset.vision = '1';
+          else if (m.vision === false) o.dataset.vision = '0';
+          sel.appendChild(o);
+        });
+        sel.classList.remove('hidden');
+        if (modelInput.value && res.models.some((m) => m.id === modelInput.value)) sel.value = modelInput.value;
+        out.className = 'notice mt8';
+        out.textContent = '✅ 读到 ' + res.models.length + ' 个模型，请在下拉框中选择要用的那个';
+      });
+
+      sel.addEventListener('change', () => {
+        const opt = sel.options[sel.selectedIndex];
+        if (!opt || !opt.value) return;
+        modelInput.value = opt.value;
+        const v = opt.dataset.vision;
+        let note = '（无法自动判断是否支持图片，请按模型说明勾选）';
+        if (visionBox) {
+          if (v === '1') { visionBox.checked = true; note = '（疑似支持图片，已自动勾选视觉）'; }
+          else if (v === '0') { visionBox.checked = false; note = '（非对话/视觉模型，已取消视觉勾选）'; }
+        }
+        out.className = 'notice mt8';
+        out.textContent = '已填入模型：' + opt.value + note + '。别忘了点「保存配置」生效。';
+      });
+    }
     // 恢复备份
     const restoreInput = $('#restore-file');
     if (restoreInput) {

@@ -48,6 +48,7 @@
                 <span class="chip <%= t.reimbursed_at ? 'income' : 'warn' %>"><%= t.reimbursed_at ? '已报销' : '待报销' %></span>
               <% } %>
               <% if (t.status === 'pending') { %><span class="chip">待确认</span><% } %>
+              <% if (t.attachment_count) { %><span class="chip" title="已关联账单截图">📎 <%= t.attachment_count %></span><% } %>
               <% if (t.source === 'ai_screenshot' || t.source === 'ai_text') { %><span class="chip primary">AI</span><% } %>
               <% if (t.source === 'import') { %><span class="chip">导入</span><% } %>
               <% if (t.source === 'recurring') { %><span class="chip">周期</span><% } %>

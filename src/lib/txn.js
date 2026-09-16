@@ -2,6 +2,7 @@
 /** 记账服务层：交易查询、写入、统计聚合 */
 const { all, get, run, tx, nowStr, todayStr, TXN_TYPE_MAP, recalcBalances } = require('../db');
 const { monthOf, pad, lastMonths, toBase } = require('./util');
+const attach = require('./attachments');
 
 /** 计入「收入」统计的类型 */
 const INCOME_TYPES = ['income', 'interest', 'refund', 'reimburse'];
@@ -132,6 +133,8 @@ function groupByDate(rows) {
     if (INCOME_TYPES.includes(r.type)) cur.income += Number(r.amount_base_cents);
     if (EXPENSE_TYPES.includes(r.type)) cur.expense += Number(r.amount_base_cents);
   }
+  // 给每笔带上「关联了几张账单截图」，列表页据此显示 📎 标记（一次查询，避免 N+1）
+  attach.attachCounts(rows);
   return groups;
 }
 

@@ -73,9 +73,17 @@
           <input type="text" name="ai.base_url" id="ai-base-url" value="<%= cfg.baseUrl %>" placeholder="https://open.bigmodel.cn/api/paas/v4">
           <div class="help">末尾不要带 /chat/completions，系统会自动补全</div>
         </div>
-        <div class="field" style="flex:1;min-width:170px">
+        <div class="field" style="flex:1;min-width:220px">
           <label>模型名称</label>
-          <input type="text" name="ai.model" id="ai-model" value="<%= cfg.model %>" placeholder="glm-4v-flash">
+          <input type="text" name="ai.model" id="ai-model" value="<%= cfg.model %>" placeholder="glm-4v-flash" autocomplete="off">
+          <div class="row wrap mt8" style="gap:6px;align-items:center">
+            <button class="btn btn-sm" type="button" id="ai-models-btn">获取可用模型</button>
+            <select id="ai-model-select" class="hidden" style="max-width:280px"></select>
+          </div>
+          <div class="help">
+            模型名可自由填写；点「获取可用模型」会向该接口读取全部模型（能读图的会标 ✅），选中即填入上方。
+          </div>
+          <div id="ai-models-result"></div>
         </div>
       </div>
       <div class="field">

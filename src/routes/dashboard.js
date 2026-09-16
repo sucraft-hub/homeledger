@@ -43,6 +43,7 @@ router.get('/', auth.requireLogin, (req, res, next) => {
   });
 
   const recent = txn.listTransactions(ledgerId, { pageSize: 8, page: 1 }).rows;
+  require('../lib/attachments').attachCounts(recent);
   const todayList = txn.listTransactions(ledgerId, { from: todayStr(), to: todayStr(), pageSize: 100 }).rows;
 
   const debts = all(
