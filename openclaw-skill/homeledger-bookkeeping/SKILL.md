@@ -49,6 +49,10 @@ curl -sS -X POST "$HOMELEDGER_URL/api/open/transactions" \
   -d '{"type":"expense","amount":35,"category":"餐饮","account":"微信零钱","merchant":"面馆","note":"午饭","date":"2026-09-15"}'
 ```
 
+**注意**：若家账簿尚未配置 AI 模型，`/ai/bill` 会退回内置规则引擎——它只能把整段文字解析成**一笔**记录，多笔口述（如"午饭 35 打车 26.5"）会丢账。此时应：
+- 把多笔文本**拆成多条**，逐条走 `/transactions` 直记；或
+- 在响应 `warnings` 提示下，引导用户到「设置 → AI 记账」配置视觉模型后再用截图/整段识别。
+
 字段说明：
 - `type`：`expense` 支出 / `income` 收入 / `transfer` 转账（也接受中文"支出/收入/转账"）
 - `amount`：元（小数）；`category`：分类名，如"餐饮"、"交通/打车"（父/子分类）
