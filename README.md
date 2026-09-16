@@ -1,11 +1,15 @@
 # 📒 家账簿 HomeLedger
 
-面向 **NAS 自托管** 的全能记账系统。纯后端服务端渲染（SSR），不依赖任何前端框架与构建工具，**零原生依赖**，一条命令即可跑起来。
+**自托管的家庭记账系统**：网页手动记账 + AI 截图/文本自动记账 + 开放 API 对接聊天机器人，所有账目数据都留在你自己的 NAS / 服务器上。
 
-- **技术栈**：Node.js 22+ / Express / EJS / `node:sqlite`（Node 内置，无需编译 sqlite3）
-- **前端**：手写 CSS + 原生 JS 渐进增强（禁用 JS 也能正常记账）
-- **图表**：服务端生成内联 SVG，**完全离线可用**
-- **数据**：单文件 SQLite（`data/homeledger.db`），备份 = 拷贝 `data/` 目录
+- **全类型记账**：支出 / 收入 / 转账 / 借贷 / 投资 / 报销 / 退款等 14 种交易类型、10 种账户、209 个内置分类，支持多币种与 AA 分账
+- **AI 自动记账**：发一张账单截图或说一句话，自动识别分类、账户、金额后入库，账单原图随记录存档；未配置模型时内置规则引擎兜底，纯离线可用
+- **家庭共享**：多账本、邀请码加入、四档成员角色、报表按成员拆分
+- **理财规划**：预算、周期账单、借贷台账、储蓄目标，到期与超支自动提醒
+- **报表图表**：收支趋势、净资产曲线、分类构成、日历热力图，服务端 SVG 渲染、完全离线
+- **部署简单**：一条 `npm start` 即可运行；提供飞牛 fnOS 原生应用包（.fpk）与 Docker 方式；单文件 SQLite，备份 = 拷贝 `data/` 目录
+
+技术形态：Node.js 22+ / Express / EJS / `node:sqlite`（Node 内置，无需编译），纯后端服务端渲染，零原生依赖，不依赖任何前端构建工具。
 
 ---
 
@@ -165,7 +169,7 @@ curl -s "$BASE_URL/models" -H "Authorization: Bearer $API_KEY"
 
 ---
 
-## 三·五、开放 API：小龙虾（OpenClaw / PicoClaw）自动记账
+## 四、开放 API：小龙虾（OpenClaw）自动记账
 
 想**在飞书 / 企业微信 / Telegram 里直接发截图或说一句话就记账**？给飞牛上的小龙虾配一个技能即可，家账簿已内置配套的开放 API。
 
@@ -203,7 +207,7 @@ curl -s "$BASE_URL/models" -H "Authorization: Bearer $API_KEY"
 
 ---
 
-## 四·五、飞牛 fnOS 应用包（.fpk）
+## 五、飞牛 fnOS 应用包（.fpk）
 
 无需 Docker，应用内置 Node.js 运行时，以飞牛应用形式安装到系统应用中心：
 
@@ -216,7 +220,7 @@ curl -s "$BASE_URL/models" -H "Authorization: Bearer $API_KEY"
 
 ---
 
-## 五、备份与迁移
+## 六、备份与迁移
 
 **备份**：整个 `data/` 目录就是全部数据。
 
@@ -233,7 +237,7 @@ tar -czf homeledger-backup-$(date +%F).tar.gz data/
 
 ---
 
-## 六、安全说明
+## 七、安全说明
 
 - 密码用 **scrypt** 加盐哈希存储，不存明文
 - 会话持久化在 SQLite，重启不掉线
@@ -244,7 +248,7 @@ tar -czf homeledger-backup-$(date +%F).tar.gz data/
 
 ---
 
-## 七、目录结构
+## 八、目录结构
 
 ```
 homeledger/
@@ -270,7 +274,7 @@ homeledger/
 
 ---
 
-## 八、常见问题
+## 九、常见问题
 
 **Q：端口被占用？**
 改 `.env` 里的 `PORT`，或用 `PORT=9000 npm start`。
@@ -298,11 +302,7 @@ DATA_DIR=/path/to/data node scripts/reset-password.js admin "新密码"
 报「接口地址或模型名含有非法字符」→ 复制粘贴时带进了中文或全角符号（如全角连字符 `－`），重打一遍即可。
 
 **Q：保存 AI 设置后，API Key 会被页面上那串圆点覆盖吗？**
-不会。输入框既**不回填真实 Key，也不回填掩码**，所以不存在「只改了模型名却把掩码存成 Key」这回事；留空保存 = 保持原值，要更换就直接粘贴新 Key，要删掉就勾选「清除已保存的 API Key」。
-
-历史上中过这个坑的表现是：请求报
-`Cannot convert argument to a ByteString because the character at index 7 has a value of 8226 which is greater than 255`
-（8226 就是圆点 `•`）。这类被污染的配置会在启动后**自动清除**，重新粘贴一次 Key 即可恢复。
+不会。输入框既**不回填真实 Key，也不回填掩码**，所以不存在「只改了模型名却把掩码存成 Key」这回事；留空保存 = 保持原值，要更换就直接粘贴新 Key，要删掉就勾选「清除已保存的 API Key」。历史上被掩码污染过的配置，程序启动后会自动清除，重新粘贴一次 Key 即可。
 
 **Q：数据存在哪？会丢吗？**
 全部在 `data/` 目录。只要这个目录在，账就不会丢。所以**务必定期备份它**。
