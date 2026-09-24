@@ -1,0 +1,74 @@
+<div class="card tight mb16">
+  <form method="get" action="/search" class="inline-form">
+    <div class="field" style="flex:2;min-width:180px">
+      <label>关键词</label>
+      <input type="search" name="q" value="<%= f.keyword %>" placeholder="备注 / 商家 / 分类 / 金额" autofocus>
+    </div>
+    <div class="field"><label>类型</label><select name="type">
+      <option value="">全部</option>
+      <% TXN_TYPES.forEach(function(t){ %><option value="<%= t.key %>" <%= f.type === t.key ? 'selected' : '' %>><%= t.label %></option><% }); %>
+    </select></div>
+    <div class="field"><label>分类</label><select name="category_id">
+      <option value="">全部</option>
+      <% form.expenseCats.concat(form.incomeCats).forEach(function(c){ if (c.parent_id) { %>
+        <option value="<%= c.id %>" <%= Number(f.categoryId) === Number(c.id) ? 'selected' : '' %>><%= c.kind === 'income' ? '收' : '支' %> · <%= c.path %></option>
+      <% } }); %>
+    </select></div>
+    <div class="field"><label>账户</label><select name="account_id">
+      <option value="">全部</option>
+      <% form.accounts.forEach(function(a){ %><option value="<%= a.id %>" <%= Number(f.accountId) === Number(a.id) ? 'selected' : '' %>><%= a.icon %> <%= a.name %></option><% }); %>
+    </select></div>
+    <div class="field"><label>成员</label><select name="member_id">
+      <option value="">全部</option>
+      <% form.members.forEach(function(m){ %><option value="<%= m.user_id %>" <%= Number(f.memberId) === Number(m.user_id) ? 'selected' : '' %>><%= m.display_name %></option><% }); %>
+    </select></div>
+    <div class="field"><label>来自</label><select name="source">
+      <option value="">全部来源</option>
+      <option value="manual" <%= f.source === 'manual' ? 'selected' : '' %>>手动记账</option>
+      <option value="ai_screenshot" <%= f.source === 'ai_screenshot' ? 'selected' : '' %>>AI 截图</option>
+      <option value="ai_text" <%= f.source === 'ai_text' ? 'selected' : '' %>>AI 文字</option>
+      <option value="import" <%= f.source === 'import' ? 'selected' : '' %>>账单导入</option>
+      <option value="recurring" <%= f.source === 'recurring' ? 'selected' : '' %>>周期账单</option>
+    </select></div>
+  </form>
+  <form method="get" action="/search" class="inline-form mt12">
+    <input type="hidden" name="q" value="<%= f.keyword %>">
+    <input type="hidden" name="type" value="<%= f.type %>">
+    <div class="field"><label>起始日期</label><input type="date" name="from" value="<%= f.from %>"></div>
+    <div class="field"><label>结束日期</label><input type="date" name="to" value="<%= f.to %>"></div>
+    <div class="field"><label>金额 ≥</label><input type="text" name="min" inputmode="decimal" value="<%= f.minCents ? helpers.fmtAmount(f.minCents) : '' %>" style="width:110px"></div>
+    <div class="field"><label>金额 ≤</label><input type="text" name="max" inputmode="decimal" value="<%= f.maxCents ? helpers.fmtAmount(f.maxCents) : '' %>" style="width:110px"></div>
+    <div class="field"><label>排序</label><select name="sort">
+      <option value="date_desc" <%= f.sort === 'date_desc' ? 'selected' : '' %>>最新在前</option>
+      <option value="date_asc" <%= f.sort === 'date_asc' ? 'selected' : '' %>>最早在前</option>
+      <option value="amount_desc" <%= f.sort === 'amount_desc' ? 'selected' : '' %>>金额从大到小</option>
+      <option value="amount_asc" <%= f.sort === 'amount_asc' ? 'selected' : '' %>>金额从小到大</option>
+    </select></div>
+    <div class="field"><button class="btn btn-primary" type="submit">搜索</button></div>
+    <div class="field"><a class="btn btn-ghost" href="/search">重置</a></div>
+  </form>
+</div>
+
+<% if (hasQuery) { %>
+  <div class="row between mb12">
+    <span class="muted small">找到 <b><%= result.total %></b> 笔 · 支出 <b class="amount expense"><%= helpers.fmtAmount(result.sum.expense) %></b> · 收入 <b class="amount income"><%= helpers.fmtAmount(result.sum.income) %></b></span>
+  </div>
+  <div class="card">
+    <%- include('partials/txn-list', { groups: groups, bulk: false }) %>
+  </div>
+  <% if (result.pages > 1) { %>
+    <div class="pager">
+      <% if (result.page > 1) { %><a href="/search?q=<%= encodeURIComponent(f.keyword) %>&type=<%= f.type %>&page=<%= result.page - 1 %>">上一页</a><% } %>
+      <span class="cur"><%= result.page %> / <%= result.pages %></span>
+      <% if (result.page < result.pages) { %><a href="/search?q=<%= encodeURIComponent(f.keyword) %>&type=<%= f.type %>&page=<%= result.page + 1 %>">下一页</a><% } %>
+    </div>
+  <% } %>
+<% } else { %>
+  <div class="card">
+    <div class="empty">
+      <span class="big">🔍</span>
+      输入关键词或选择条件开始搜索
+      <div class="small mt8">支持按备注、商家、分类名、金额搜索，也可以组合日期与金额区间</div>
+    </div>
+  </div>
+<% } %>

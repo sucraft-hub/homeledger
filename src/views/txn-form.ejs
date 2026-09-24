@@ -1,0 +1,298 @@
+<%
+  var typeList = [
+    { key:'expense', label:'支出', icon:'💸' },
+    { key:'income',  label:'收入', icon:'💰' },
+    { key:'transfer',label:'转账', icon:'🔄' },
+    { key:'lend',    label:'借出', icon:'📤' },
+    { key:'borrow',  label:'借入', icon:'📥' },
+    { key:'repay_receive', label:'收回借款', icon:'↩️' },
+    { key:'repay_pay', label:'偿还借款', icon:'↪️' }
+  ];
+  var moreTypes = [
+    { key:'reimburse', label:'报销入账', icon:'🧾' },
+    { key:'refund', label:'退款', icon:'↩️' },
+    { key:'fee', label:'手续费', icon:'🏷️' },
+    { key:'interest', label:'利息收入', icon:'🏦' },
+    { key:'invest_buy', label:'投资买入', icon:'📉' },
+    { key:'invest_sell', label:'投资卖出', icon:'📈' },
+    { key:'adjust', label:'余额调整', icon:'⚖️' }
+  ];
+  var cur = t.type || 'expense';
+  var isExtra = moreTypes.some(function(x){ return x.key === cur; });
+  var multiAccount = ['transfer','invest_buy','invest_sell'].includes(cur);
+  var noCategory = ['transfer','adjust'].includes(cur);
+  var catKind = cur === 'income' ? 'income' : 'expense';
+  var amountValue = t.amount !== undefined ? t.amount : (t.amount_cents !== undefined && t.amount_cents !== null ? (t.amount_cents / 100).toFixed(2) : '');
+  if (typeof amountValue === 'number') amountValue = amountValue.toFixed(2);
+  var action = mode === 'edit' ? ('/transactions/' + t.id) : '/transactions';
+%>
+
+<% if (typeof error !== 'undefined' && error) { %>
+  <div class="flash error"><span><%= error %></span></div>
+<% } %>
+
+<form method="post" action="<%= action %>" id="txn-form">
+  <input type="hidden" name="_csrf" value="<%= csrf %>">
+  <input type="hidden" name="type" id="f-type" value="<%= cur %>">
+  <input type="hidden" name="category_id" id="f-category" value="<%= t.category_id || '' %>">
+  <input type="hidden" name="back" value="<%= back %>">
+
+  <div class="grid grid-main">
+    <div>
+      <div class="card">
+        <div class="row between mb12">
+          <div class="type-tabs" style="flex:1">
+            <% typeList.forEach(function(x){ %>
+              <button type="button" data-type="<%= x.key %>" class="<%= cur === x.key ? 'active' : '' %>"><%= x.icon %> <%= x.label %></button>
+            <% }); %>
+          </div>
+        </div>
+        <div class="row mb16" style="gap:6px;flex-wrap:wrap">
+          <span class="tiny muted">更多类型：</span>
+          <% moreTypes.forEach(function(x){ %>
+            <button type="button" class="chip <%= cur === x.key ? 'primary' : '' %>" data-type="<%= x.key %>"><%= x.icon %> <%= x.label %></button>
+          <% }); %>
+        </div>
+
+        <div class="field">
+          <label>金额</label>
+          <div class="amount-input">
+            <span class="cur">¥</span>
+            <input type="text" name="amount" id="f-amount" inputmode="decimal" value="<%= amountValue %>" placeholder="0.00" required autocomplete="off">
+          </div>
+        </div>
+
+        <div class="row wrap" style="gap:12px">
+          <div class="field" style="flex:1;min-width:150px">
+            <label>日期</label>
+            <input type="date" name="txn_date" value="<%= (t.txn_date || '').slice(0,10) %>" required>
+          </div>
+          <div class="field" style="flex:1;min-width:150px">
+            <label>成员</label>
+            <select name="member_id" disabled style="opacity:.6">
+              <option><%= t.member_name || user.display_name %>（当前记录人）</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row wrap" style="gap:12px">
+          <div class="field" style="flex:1;min-width:160px">
+            <label id="acc-label">支付账户</label>
+            <select name="account_id" id="f-account">
+              <option value="">请选择账户…</option>
+              <% form.accounts.forEach(function(a){ %>
+                <option value="<%= a.id %>" <%= Number(t.account_id) === Number(a.id) ? 'selected' : '' %>><%= a.icon %> <%= a.name %>（<%= helpers.fmtAmount(a.balance_cents) %>）</option>
+              <% }); %>
+            </select>
+          </div>
+          <div class="field" data-for-type="transfer,invest_buy,invest_sell" style="flex:1;min-width:160px">
+            <label>转入 / 投资账户</label>
+            <select name="to_account_id">
+              <option value="">请选择账户…</option>
+              <% form.accounts.forEach(function(a){ %>
+                <option value="<%= a.id %>" <%= Number(t.to_account_id) === Number(a.id) ? 'selected' : '' %>><%= a.icon %> <%= a.name %></option>
+              <% }); %>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>商家 / 对方 <span class="muted tiny">（借贷时的对方姓名很关键）</span></label>
+          <input type="text" name="merchant" value="<%= t.merchant || '' %>" placeholder="例如：肯德基 / 张三 / 房东">
+        </div>
+
+        <div class="field">
+          <label>备注</label>
+          <textarea name="note" rows="2" placeholder="补充说明，例如：和同事聚餐"><%= t.note || '' %></textarea>
+        </div>
+
+        <div class="row wrap" style="gap:12px">
+          <div class="field" style="flex:1;min-width:150px">
+            <label>标签</label>
+            <input type="text" name="tags" value="<%= t.tag_names || '' %>" placeholder="多个用空格分隔">
+          </div>
+          <div class="field" style="flex:1;min-width:150px">
+            <label>状态</label>
+            <select name="status">
+              <option value="cleared" <%= t.status !== 'pending' ? 'selected' : '' %>>已确认</option>
+              <option value="pending" <%= t.status === 'pending' ? 'selected' : '' %>>待确认</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row wrap mb12" style="gap:16px">
+          <label class="check"><input type="checkbox" name="is_reimbursable" value="1" <%= t.is_reimbursable ? 'checked' : '' %>> 这笔可以报销</label>
+        </div>
+
+        <details style="margin-top:4px">
+          <summary class="small muted" style="cursor:pointer;margin-bottom:10px">多币种 / 汇率（可选）</summary>
+          <div class="row wrap" style="gap:12px">
+            <div class="field" style="flex:1;min-width:120px">
+              <label>币种</label>
+              <select name="currency">
+                <% ['CNY','USD','EUR','HKD','JPY','GBP','KRW','SGD','AUD','CAD','TWD'].forEach(function(c){ %>
+                  <option value="<%= c %>" <%= t.currency === c ? 'selected' : '' %>><%= c %></option>
+                <% }); %>
+              </select>
+            </div>
+            <div class="field" style="flex:1;min-width:120px">
+              <label>汇率（折算为 <%= baseCurrency %>）</label>
+              <input type="text" name="rate" value="<%= t.rate || 1 %>">
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>AA 分账</h2>
+          <span class="muted small">可选，用于朋友聚餐/团队开销</span>
+        </div>
+        <div id="split-rows">
+          <% (splitRows || []).forEach(function(s){ %>
+            <div class="row split-row mb8">
+              <input type="text" name="split_name" value="<%= s.member_name || '' %>" placeholder="成员" style="flex:1">
+              <input type="text" name="split_amount" inputmode="decimal" value="<%= s.share_cents ? (s.share_cents/100).toFixed(2) : '' %>" placeholder="金额" style="flex:1">
+              <button type="button" class="btn btn-sm btn-ghost del-split">✕</button>
+            </div>
+          <% }); %>
+        </div>
+        <div class="row">
+          <button type="button" class="btn btn-sm" id="add-split">＋ 添加分摊人</button>
+          <button type="button" class="btn btn-sm btn-ghost" id="split-average">按人数均摊</button>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card" id="f-cat-wrap">
+        <div class="card-head">
+          <h2>分类</h2>
+          <span class="muted small" id="cat-hint"><%= t.category_path && t.category_path !== '未分类' ? t.category_path : '未选择' %></span>
+        </div>
+
+        <% ['expense','income'].forEach(function(kind){ %>
+          <div class="cat-section <%= kind === catKind ? '' : 'hidden' %>" data-cat-kind="<%= kind %>">
+            <div class="type-tabs mb12" style="background:transparent;border:0;padding:0;gap:6px">
+              <% (kind === 'expense' ? form.expenseTree : form.incomeTree).forEach(function(root, idx){ %>
+                <span class="chip cat-parent" data-target="root-<%= kind %>-<%= root.id %>" style="cursor:pointer"><%= root.icon %> <%= root.name %></span>
+              <% }); %>
+            </div>
+            <div class="scroll-x" style="max-height:460px;overflow-y:auto">
+              <% (kind === 'expense' ? form.expenseTree : form.incomeTree).forEach(function(root){ %>
+                <div class="cat-group mb12">
+                  <div class="small bold muted mb8"><%= root.icon %> <%= root.name %></div>
+                  <div class="cat-grid">
+                    <% root.children.forEach(function(c){ %>
+                      <a class="cat-item <%= Number(t.category_id) === Number(c.id) ? 'selected' : '' %>" href="#" data-id="<%= c.id %>" data-name="<%= c.name %>" data-path="<%= root.name %>/<%= c.name %>">
+                        <span class="ci"><%= c.icon %></span>
+                        <span><%= c.name %></span>
+                      </a>
+                    <% }); %>
+                    <a class="cat-item <%= Number(t.category_id) === Number(root.id) ? 'selected' : '' %>" href="#" data-id="<%= root.id %>" data-name="<%= root.name %>" data-path="<%= root.name %>（不细分）">
+                      <span class="ci">📁</span>
+                      <span>不细分</span>
+                    </a>
+                  </div>
+                </div>
+              <% }); %>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <button class="btn btn-primary btn-lg" type="submit" id="submit-btn" style="flex:1"><%= mode === 'edit' ? '保存修改' : '保存这一笔' %></button>
+          <a class="btn btn-lg" href="<%= back %>">取消</a>
+        </div>
+        <% if (mode === 'edit') { %>
+        <div class="mt12">
+          <div class="kv"><span class="k">创建时间</span><span class="v mono"><%= helpers.fmtDateTime(t.created_at) %></span></div>
+          <div class="kv"><span class="k">最后修改</span><span class="v mono"><%= helpers.fmtDateTime(t.updated_at) %></span></div>
+          <div class="kv"><span class="k">来源</span><span class="v"><%= t.source %></span></div>
+        </div>
+        <% } %>
+      </div>
+
+      <div class="notice small">
+        💡 提示：<b>转账</b>、<b>借贷</b>、<b>投资买卖</b> 不计入收支统计，只影响账户余额，这样统计口径更准确。
+      </div>
+    </div>
+  </div>
+</form>
+
+<% if (mode === 'edit' && typeof images !== 'undefined' && images.length) { %>
+  <div class="card" id="txn-images">
+    <div class="card-head">
+      <h2>📎 关联账单截图（<%= images.length %>）</h2>
+      <a class="btn btn-sm btn-ghost" href="/attachments">全部截图 →</a>
+    </div>
+    <div class="gallery">
+      <% images.forEach(function(img){ %>
+        <figure>
+          <img src="<%= img.url %>" alt="账单截图" data-zoom="<%= img.url %>" loading="lazy">
+          <figcaption>
+            <div class="tiny"><%= helpers.fmtDateTime(img.created_at) %> · <%= Math.round((img.size || 0) / 1024) %> KB</div>
+          </figcaption>
+        </figure>
+      <% }); %>
+    </div>
+  </div>
+<% } %>
+
+<script>
+(function(){
+  // 类型相关的字段显隐（服务端已渲染，JS 仅做交互增强）
+  var curType = <%- JSON.stringify(cur) %>;
+  function applyType(type){
+    document.querySelectorAll('[data-for-type]').forEach(function(el){
+      el.classList.toggle('hidden', !el.dataset.forType.split(',').includes(type));
+    });
+    document.querySelectorAll('[data-not-type]').forEach(function(el){
+      el.classList.toggle('hidden', el.dataset.notType.split(',').includes(type));
+    });
+    var catWrap = document.getElementById('f-cat-wrap');
+    if (catWrap) catWrap.classList.toggle('hidden', type === 'transfer' || type === 'adjust');
+    var kind = type === 'income' ? 'income' : 'expense';
+    document.querySelectorAll('.cat-section').forEach(function(el){
+      el.classList.toggle('hidden', el.dataset.catKind !== kind);
+    });
+    // 账户字段标签随类型变化
+    var accLabel = document.getElementById('acc-label');
+    if (accLabel) {
+      accLabel.textContent = type === 'expense' ? '支付账户'
+        : type === 'income' ? '收款账户'
+        : type === 'transfer' ? '从账户'
+        : type === 'lend' ? '从哪个账户借出'
+        : type === 'borrow' ? '收到哪个账户'
+        : type === 'repay_receive' ? '收款账户'
+        : type === 'repay_pay' ? '付款账户'
+        : type === 'invest_buy' ? '付款账户'
+        : type === 'invest_sell' ? '收款账户'
+        : '账户';
+    }
+  }
+  applyType(curType);
+  document.querySelectorAll('.type-tabs [data-type]').forEach(function(btn){
+    btn.addEventListener('click', function(){ applyType(btn.dataset.type); });
+  });
+  document.querySelectorAll('.chip[data-type]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.chip[data-type]').forEach(function(b){ b.classList.toggle('primary', b === btn); });
+      applyType(btn.dataset.type);
+    });
+  });
+  // 分类父级跳转
+  document.querySelectorAll('.cat-parent').forEach(function(p){
+    p.addEventListener('click', function(e){
+      e.preventDefault();
+      var name = p.textContent.trim().replace(/^\S+\s*/, '');
+      document.querySelectorAll('.cat-group').forEach(function(g){
+        var head = g.querySelector('.small.bold');
+        if (head && head.textContent.indexOf(name) >= 0) g.scrollIntoView({ behavior:'smooth', block:'start' });
+      });
+    });
+  });
+})();
+</script>

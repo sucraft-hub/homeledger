@@ -1,0 +1,229 @@
+<%
+  var expDelta = prev.expense > 0 ? ((cur.expense - prev.expense) / prev.expense) * 100 : 0;
+  var incDelta = prev.income > 0 ? ((cur.income - prev.income) / prev.income) * 100 : 0;
+  var donutItems = cats.map(function(c){ return { name: c.name, value: c.total / 100, color: c.color }; });
+  var todayExpense = todayList.filter(function(t){ return t.is_expense; }).reduce(function(s,t){ return s + t.amount_base_cents; }, 0);
+%>
+
+<div class="grid grid-4 mb16">
+  <div class="stat">
+    <div class="label">本月支出</div>
+    <div class="value amount expense"><%= helpers.fmtAmount(cur.expense) %></div>
+    <div class="delta <%= expDelta > 0 ? 'up' : 'down' %>">
+      环比上月 <%= expDelta >= 0 ? '↑' : '↓' %> <%= Math.abs(expDelta).toFixed(1) %>%
+    </div>
+  </div>
+  <div class="stat">
+    <div class="label">本月收入</div>
+    <div class="value amount income"><%= helpers.fmtAmount(cur.income) %></div>
+    <div class="delta <%= incDelta > 0 ? 'down' : 'up' %>">
+      环比上月 <%= incDelta >= 0 ? '↑' : '↓' %> <%= Math.abs(incDelta).toFixed(1) %>%
+    </div>
+  </div>
+  <div class="stat">
+    <div class="label">本月结余</div>
+    <div class="value amount <%= cur.net >= 0 ? 'income' : 'expense' %>"><%= helpers.fmtAmount(cur.net) %></div>
+    <div class="delta">共 <%= cur.count %> 笔 · 日均 <%= helpers.fmtAmount(Math.round(cur.expense / daysInMonth)) %></div>
+  </div>
+  <div class="stat">
+    <div class="label">净资产</div>
+    <div class="value amount <%= overview.net >= 0 ? '' : 'expense' %>"><%= helpers.compactMoney(overview.net) %></div>
+    <div class="delta">资产 <%= helpers.compactMoney(overview.assets) %> · 负债 <%= helpers.compactMoney(overview.liabilities) %></div>
+  </div>
+</div>
+
+<% if (!aiReady) { %>
+  <div class="notice info mb16 row">
+    <span>🤖</span>
+    <span class="spacer">还没有配置 AI 模型，截图记账目前只能使用内置规则解析。<a href="/settings#ai">去配置 →</a></span>
+  </div>
+<% } %>
+
+<div class="grid grid-main">
+  <div>
+    <div class="card">
+      <div class="card-head">
+        <h2>收支趋势</h2>
+        <span class="muted small">近 6 个月</span>
+        <a class="btn btn-sm btn-ghost" href="/reports">详细报表 →</a>
+      </div>
+      <div class="chart-box">
+        <%- charts.barChart({
+          labels: trend.map(function(t){ return helpers.monthShort(t.month); }),
+          series: [
+            { name: '支出', color: '#f5222d', data: trend.map(function(t){ return t.expense / 100; }) },
+            { name: '收入', color: '#52c41a', data: trend.map(function(t){ return t.income / 100; }) }
+          ]
+        }) %>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>最近记录</h2>
+        <a class="btn btn-sm btn-ghost" href="/transactions">全部 →</a>
+      </div>
+      <%- include('partials/txn-list', { groups: [ { date: recent[0] ? recent[0].txn_date : '1970-01-01', items: recent, income: 0, expense: 0 } ].filter(function(g){ return g.items.length; }), bulk: false }) %>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>支出构成</h2>
+        <span class="muted small"><%= monthLabel %></span>
+      </div>
+      <% if (!donutItems.length) { %>
+        <div class="empty"><span class="big">📊</span>本月还没有支出记录</div>
+      <% } else { %>
+        <div class="row" style="gap:20px;align-items:flex-start;flex-wrap:wrap">
+          <div style="flex:0 0 200px">
+            <%- charts.donutChart(donutItems, { size: 190, thickness: 26, centerValue: helpers.compactMoney(cur.expense), centerTitle: '本月支出' }) %>
+          </div>
+          <div style="flex:1;min-width:230px">
+            <%- charts.donutLegend(donutItems, cur.expense / 100) %>
+          </div>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-head"><h2>今日速览</h2><span class="muted small"><%= helpers.relDate(today) %></span></div>
+      <div class="row between mb12">
+        <div>
+          <div class="tiny muted">今日支出</div>
+          <div class="amount expense" style="font-size:20px"><%= helpers.fmtAmount(todayExpense) %></div>
+        </div>
+        <div class="right">
+          <div class="tiny muted">今日笔数</div>
+          <div class="amount" style="font-size:20px"><%= todayList.length %></div>
+        </div>
+      </div>
+      <div class="row">
+        <a class="btn btn-primary btn-block" href="/transactions/new">＋ 记一笔</a>
+        <a class="btn" href="/ai">🤖 截图记账</a>
+      </div>
+    </div>
+
+    <% if (pendingReimburse.count) { %>
+    <div class="card">
+      <div class="card-head"><h2>待报销</h2></div>
+      <div class="row between">
+        <span><%= pendingReimburse.count %> 笔待报销</span>
+        <span class="amount"><%= helpers.money(pendingReimburse.sum) %></span>
+      </div>
+      <a class="btn btn-sm btn-block mt12" href="/transactions?reimbursable=yes">去处理</a>
+    </div>
+    <% } %>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>预算进度</h2>
+        <a class="btn btn-sm btn-ghost" href="/budgets">管理 →</a>
+      </div>
+      <% if (!budgets.length) { %>
+        <div class="empty" style="padding:20px 8px"><span class="big">🎯</span>还没有设置预算<div class="small mt8"><a href="/budgets">创建一个预算</a>，超支时会自动提醒你</div></div>
+      <% } else { %>
+        <% budgets.forEach(function(b){ %>
+          <div class="mb12">
+            <div class="row between small">
+              <span class="bold"><%= b.icon || '🎯' %> <%= b.name %></span>
+              <span class="<%= b.ratio >= 100 ? 'amount expense' : 'muted' %>"><%= helpers.fmtAmount(b.used) %> / <%= helpers.fmtAmount(b.amount_cents) %></span>
+            </div>
+            <div class="mt8"><%- charts.progressBar(b.used, b.amount_cents) %></div>
+            <div class="tiny muted mt8">
+              <% if (b.ratio >= 100) { %>
+                已超支 <%= helpers.fmtAmount(b.used - b.amount_cents) %>
+              <% } else { %>
+                还剩 <%= helpers.fmtAmount(Number(b.amount_cents) - b.used) %>（<%= b.rangeLabel %>）
+              <% } %>
+            </div>
+          </div>
+        <% }); %>
+      <% } %>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>订阅扣费</h2><a class="btn btn-sm btn-ghost" href="/subscriptions">管理 →</a></div>
+      <% if (!subs || !subs.live.length) { %>
+        <div class="empty" style="padding:20px 8px"><span class="big">🧾</span>还没有订阅
+          <div class="small mt8">把 Netflix、云盘、服务器这类自动续费登记进来，<a href="/subscriptions">现在添加</a></div>
+        </div>
+      <% } else { %>
+        <div class="row between small">
+          <span class="muted">每月固定支出</span>
+          <span class="amount expense bold"><%= helpers.fmtAmount(subs.monthlyTotal) %></span>
+        </div>
+        <div class="row between tiny muted mt8">
+          <span>全年 <%= helpers.fmtAmount(subs.annualTotal) %></span>
+          <span>生效 <%= subs.live.length %> 项 · 本月待扣 <%= subs.dueThisMonth %></span>
+        </div>
+        <div class="mt12">
+          <% subs.live.slice(0, 3).forEach(function(it){ %>
+            <div class="row between tiny" style="padding:4px 0;border-bottom:1px dashed var(--border)">
+              <span><%= it.icon %> <%= it.name %> <span class="muted">· <%= it.cycleLabel %></span></span>
+              <span class="<%= it.daysLeft <= 3 ? 'amount expense' : 'muted' %>"><%= it.next_charge_at.slice(5) %> <%= it.dueLabel %></span>
+            </div>
+          <% }); %>
+        </div>
+      <% } %>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>账户余额</h2><a class="btn btn-sm btn-ghost" href="/accounts">管理 →</a></div>
+      <% if (!overview.accounts.length) { %>
+        <div class="empty" style="padding:16px"><a href="/accounts">添加账户</a></div>
+      <% } else { %>
+        <% overview.accounts.slice(0, 6).forEach(function(a){ %>
+          <div class="row between" style="padding:6px 0;border-bottom:1px dashed var(--border)">
+            <span><%= a.icon %> <%= a.name %></span>
+            <span class="amount <%= Number(a.balance_cents) < 0 ? 'expense' : '' %>"><%= helpers.money(a.balance_cents, a.currency) %></span>
+          </div>
+        <% }); %>
+        <% if (overview.accounts.length > 6) { %>
+          <div class="tiny muted mt8">还有 <%= overview.accounts.length - 6 %> 个账户…</div>
+        <% } %>
+      <% } %>
+    </div>
+
+    <% if (debts.length) { %>
+    <div class="card">
+      <div class="card-head"><h2>借贷</h2><a class="btn btn-sm btn-ghost" href="/debts">查看 →</a></div>
+      <% debts.forEach(function(d){ %>
+        <div class="row between" style="padding:5px 0">
+          <span><%= d.direction === 'receivable' ? '📥 别人欠我' : '📤 我欠别人' %>（<%= d.cnt %>）</span>
+          <span class="amount <%= d.direction === 'receivable' ? 'income' : 'expense' %>"><%= helpers.money(d.total) %></span>
+        </div>
+      <% }); %>
+    </div>
+    <% } %>
+
+    <% if (goals.length) { %>
+    <div class="card">
+      <div class="card-head"><h2>储蓄目标</h2><a class="btn btn-sm btn-ghost" href="/goals">查看 →</a></div>
+      <% goals.forEach(function(g){ %>
+        <% var p = Math.min(100, (g.saved_cents / g.target_cents) * 100); %>
+        <div class="mb12">
+          <div class="row between small">
+            <span><%= g.icon %> <%= g.name %></span>
+            <span class="muted"><%= p.toFixed(0) %>%</span>
+          </div>
+          <div class="mt8"><%- charts.progressBar(g.saved_cents, g.target_cents, { color: '#52c41a' }) %></div>
+        </div>
+      <% }); %>
+    </div>
+    <% } %>
+
+    <% if (upcoming.length) { %>
+    <div class="card">
+      <div class="card-head"><h2>即将自动记账</h2><a class="btn btn-sm btn-ghost" href="/recurring">管理 →</a></div>
+      <% upcoming.forEach(function(r){ %>
+        <div class="row between small" style="padding:5px 0">
+          <span><%= r.name %></span>
+          <span class="muted"><%= r.next_run_at %> · <%= r.auto_post ? '自动' : '提醒' %></span>
+        </div>
+      <% }); %>
+    </div>
+    <% } %>
+  </div>
+</div>

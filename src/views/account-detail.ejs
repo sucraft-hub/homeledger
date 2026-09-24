@@ -1,0 +1,58 @@
+<div class="grid grid-4 mb16">
+  <div class="stat">
+    <div class="label">当前余额</div>
+    <div class="value amount <%= Number(acc.balance_cents) < 0 ? 'expense' : '' %>"><%= helpers.money(acc.balance_cents, acc.currency) %></div>
+    <div class="delta"><%= typeLabel %><%= acc.card_no ? ' · 尾号 ' + acc.card_no : '' %></div>
+  </div>
+  <div class="stat">
+    <div class="label">初始余额</div>
+    <div class="value amount"><%= helpers.money(acc.initial_cents, acc.currency) %></div>
+    <div class="delta">创建于 <%= helpers.fmtDate(acc.created_at) %></div>
+  </div>
+  <% if (acc.credit_limit) { %>
+  <div class="stat">
+    <div class="label">可用额度</div>
+    <div class="value amount"><%= helpers.money(Number(acc.credit_limit) + Number(acc.balance_cents), acc.currency) %></div>
+    <div class="delta">额度 <%= helpers.money(acc.credit_limit) %></div>
+  </div>
+  <% } else { %>
+  <div class="stat">
+    <div class="label">本月笔数</div>
+    <div class="value"><%= result.total %></div>
+    <div class="delta">筛选结果</div>
+  </div>
+  <% } %>
+  <div class="stat">
+    <div class="label">筛选内支出 / 收入</div>
+    <div class="value amount" style="font-size:17px">
+      <span class="expense"><%= helpers.fmtAmount(result.sum.expense) %></span> /
+      <span class="income"><%= helpers.fmtAmount(result.sum.income) %></span>
+    </div>
+    <div class="delta"><%= f.from || '开始' %> ~ <%= f.to || '至今' %></div>
+  </div>
+</div>
+
+<div class="card tight mb16">
+  <div class="row wrap">
+    <a class="btn btn-primary" href="/transactions/new?account_id=<%= acc.id %>">＋ 记一笔</a>
+    <a class="btn" href="/accounts">返回账户列表</a>
+    <span class="spacer"></span>
+    <form method="get" action="/accounts/<%= acc.id %>" class="inline-form">
+      <div class="field"><input type="date" name="from" value="<%= f.from %>"></div>
+      <div class="field"><input type="date" name="to" value="<%= f.to %>"></div>
+      <div class="field"><button class="btn" type="submit">筛选</button></div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <h2>账户流水</h2>
+    <span class="muted small">共 <%= result.total %> 笔</span>
+  </div>
+  <%- include('partials/txn-list', { groups: groups, bulk: false }) %>
+</div>
+
+<% if (acc.note) { %>
+  <div class="notice mt16"><%= acc.note %></div>
+<% } %>

@@ -1,0 +1,138 @@
+<%
+  var qs = function(extra){
+    var o = Object.assign({}, f, extra || {});
+    var parts = [];
+    Object.keys(o).forEach(function(k){
+      if (o[k] === '' || o[k] === null || o[k] === undefined) return;
+      var key = k === 'categoryId' ? 'category_id' : k === 'accountId' ? 'account_id' : k === 'memberId' ? 'member_id' : k === 'tagId' ? 'tag_id' : k;
+      parts.push(encodeURIComponent(key) + '=' + encodeURIComponent(o[k]));
+    });
+    return parts.length ? '?' + parts.join('&') : '';
+  };
+  var monthNow = new Date();
+  var curMonth = monthNow.getFullYear() + '-' + String(monthNow.getMonth() + 1).padStart(2, '0');
+%>
+
+<div class="card tight mb16">
+  <div class="row wrap mb12" style="gap:6px">
+    <a class="chip <%= !f.month && !f.from && !f.to ? 'primary' : '' %>" href="/transactions<%= qs({ month:'', from:'', to:'', page:1 }) %>">全部</a>
+    <a class="chip <%= f.month === curMonth ? 'primary' : '' %>" href="/transactions<%= qs({ month: curMonth, from:'', to:'', page:1 }) %>">本月</a>
+    <a class="chip" href="/transactions<%= qs({ month:'', from: helpers.addDays(today, -6), to: today, page:1 }) %>">近 7 天</a>
+    <a class="chip" href="/transactions<%= qs({ month:'', from: helpers.addDays(today, -29), to: today, page:1 }) %>">近 30 天</a>
+    <a class="chip" href="/transactions<%= qs({ month:'', from: today.slice(0,4) + '-01-01', to: today.slice(0,4) + '-12-31', page:1 }) %>"><%= today.slice(0,4) %> 年</a>
+    <span style="width:1px;background:var(--border);margin:0 4px"></span>
+    <a class="chip <%= f.type === '' && f.kind === '' ? 'primary' : '' %>" href="/transactions<%= qs({ type:'', kind:'', page:1 }) %>">不限类型</a>
+    <a class="chip <%= f.kind === 'expense' ? 'primary' : '' %>" href="/transactions<%= qs({ kind:'expense', type:'', page:1 }) %>">只看支出</a>
+    <a class="chip <%= f.kind === 'income' ? 'primary' : '' %>" href="/transactions<%= qs({ kind:'income', type:'', page:1 }) %>">只看收入</a>
+    <a class="chip <%= f.type === 'transfer' ? 'primary' : '' %>" href="/transactions<%= qs({ type:'transfer', kind:'', page:1 }) %>">只看转账</a>
+    <a class="chip <%= f.reimbursable === 'yes' ? 'primary' : '' %>" href="/transactions<%= qs({ reimbursable:'yes', page:1 }) %>">待报销</a>
+    <a class="chip <%= f.source === 'ai_screenshot' ? 'primary' : '' %>" href="/transactions<%= qs({ source:'ai_screenshot', page:1 }) %>">AI 记账</a>
+    <a class="chip <%= f.source === 'import' ? 'primary' : '' %>" href="/transactions<%= qs({ source:'import', page:1 }) %>">导入</a>
+    <a class="chip <%= f.source === 'subscription' ? 'primary' : '' %>" href="/transactions<%= qs({ source:'subscription', page:1 }) %>">订阅</a>
+  </div>
+
+  <form method="get" action="/transactions" class="inline-form">
+    <div class="field" style="flex:1;min-width:150px">
+      <input type="search" name="q" value="<%= f.keyword %>" placeholder="搜索备注 / 商家 / 分类 / 金额">
+    </div>
+    <div class="field"><select name="type">
+      <option value="">全部类型</option>
+      <% TXN_TYPES.forEach(function(t){ %><option value="<%= t.key %>" <%= f.type === t.key ? 'selected' : '' %>><%= t.icon %> <%= t.label %></option><% }); %>
+    </select></div>
+    <div class="field"><select name="category_id">
+      <option value="">全部分类</option>
+      <optgroup label="支出">
+        <% form.expenseCats.filter(function(c){ return !c.parent_id; }).forEach(function(c){ %>
+          <option value="<%= c.id %>" <%= Number(f.categoryId) === Number(c.id) ? 'selected' : '' %>>📁 <%= c.name %></option>
+          <% form.expenseCats.filter(function(x){ return Number(x.parent_id) === Number(c.id); }).forEach(function(x){ %>
+            <option value="<%= x.id %>" <%= Number(f.categoryId) === Number(x.id) ? 'selected' : '' %>>　<%= x.icon %> <%= x.name %></option>
+          <% }); %>
+        <% }); %>
+      </optgroup>
+      <optgroup label="收入">
+        <% form.incomeCats.filter(function(c){ return !c.parent_id; }).forEach(function(c){ %>
+          <option value="<%= c.id %>" <%= Number(f.categoryId) === Number(c.id) ? 'selected' : '' %>>📁 <%= c.name %></option>
+          <% form.incomeCats.filter(function(x){ return Number(x.parent_id) === Number(c.id); }).forEach(function(x){ %>
+            <option value="<%= x.id %>" <%= Number(f.categoryId) === Number(x.id) ? 'selected' : '' %>>　<%= x.icon %> <%= x.name %></option>
+          <% }); %>
+        <% }); %>
+      </optgroup>
+    </select></div>
+    <div class="field"><select name="account_id">
+      <option value="">全部账户</option>
+      <% form.accounts.forEach(function(a){ %><option value="<%= a.id %>" <%= Number(f.accountId) === Number(a.id) ? 'selected' : '' %>><%= a.icon %> <%= a.name %></option><% }); %>
+    </select></div>
+    <div class="field"><select name="member_id">
+      <option value="">全部成员</option>
+      <% form.members.forEach(function(m){ %><option value="<%= m.user_id %>" <%= Number(f.memberId) === Number(m.user_id) ? 'selected' : '' %>><%= m.display_name %></option><% }); %>
+    </select></div>
+    <div class="field"><select name="sort">
+      <option value="date_desc" <%= f.sort === 'date_desc' ? 'selected' : '' %>>最新在前</option>
+      <option value="date_asc" <%= f.sort === 'date_asc' ? 'selected' : '' %>>最早在前</option>
+      <option value="amount_desc" <%= f.sort === 'amount_desc' ? 'selected' : '' %>>金额从大到小</option>
+      <option value="amount_asc" <%= f.sort === 'amount_asc' ? 'selected' : '' %>>金额从小到大</option>
+    </select></div>
+    <div class="field"><button class="btn btn-primary" type="submit">筛选</button></div>
+    <% if (f.keyword || f.type || f.kind || f.categoryId || f.accountId || f.memberId || f.month || f.from || f.to || f.source || f.reimbursable) { %>
+      <div class="field"><a class="btn btn-ghost" href="/transactions">清空</a></div>
+    <% } %>
+  </form>
+</div>
+
+<div class="row between mb12">
+  <div class="row" style="gap:14px">
+    <span class="muted small">共 <b><%= result.total %></b> 笔</span>
+    <span class="small">支出 <b class="amount expense"><%= helpers.fmtAmount(result.sum.expense) %></b></span>
+    <span class="small">收入 <b class="amount income"><%= helpers.fmtAmount(result.sum.income) %></b></span>
+    <span class="small">结余 <b class="amount <%= (result.sum.income - result.sum.expense) >= 0 ? 'income' : 'expense' %>"><%= helpers.fmtAmount(result.sum.income - result.sum.expense) %></b></span>
+  </div>
+  <div class="row">
+    <a class="btn btn-sm" href="/export">📤 导出</a>
+  </div>
+</div>
+
+<form id="bulk-form" method="post" action="/transactions/bulk">
+  <input type="hidden" name="_csrf" value="<%= csrf %>">
+  <input type="hidden" name="back" value="<%= path + qs({}) %>">
+  <div class="card">
+    <div class="row mb12">
+      <label class="check"><input type="checkbox" id="bulk-all"> 全选本页</label>
+      <span class="muted tiny">勾选后可用下方批量操作</span>
+    </div>
+    <%- include('partials/txn-list', { groups: groups, bulk: true }) %>
+  </div>
+
+  <% if (result.pages > 1) { %>
+    <div class="pager">
+      <% if (result.page > 1) { %><a href="/transactions<%= qs({ page: result.page - 1 }) %>">上一页</a><% } %>
+      <% var start = Math.max(1, result.page - 2), end = Math.min(result.pages, start + 4); start = Math.max(1, end - 4); %>
+      <% if (start > 1) { %><a href="/transactions<%= qs({ page: 1 }) %>">1</a><span class="gap">…</span><% } %>
+      <% for (var p = start; p <= end; p++) { %>
+        <% if (p === result.page) { %><span class="cur"><%= p %></span><% } else { %><a href="/transactions<%= qs({ page: p }) %>"><%= p %></a><% } %>
+      <% } %>
+      <% if (end < result.pages) { %><span class="gap">…</span><a href="/transactions<%= qs({ page: result.pages }) %>"><%= result.pages %></a><% } %>
+      <% if (result.page < result.pages) { %><a href="/transactions<%= qs({ page: result.page + 1 }) %>">下一页</a><% } %>
+    </div>
+  <% } %>
+
+  <div class="card hidden" id="bulk-bar" style="position:sticky;bottom:8px;z-index:40">
+    <div class="row wrap">
+      <span class="small">已选 <b id="bulk-count">0</b> 笔：</span>
+      <button class="btn btn-sm btn-danger" name="action" value="delete" type="submit">删除</button>
+      <select name="category_id" style="width:auto">
+        <option value="">改分类为…</option>
+        <% form.expenseCats.forEach(function(c){ if (c.parent_id) { %><option value="<%= c.id %>"><%= c.path %></option><% } }); %>
+        <% form.incomeCats.forEach(function(c){ if (c.parent_id) { %><option value="<%= c.id %>"><%= c.path %></option><% } }); %>
+      </select>
+      <button class="btn btn-sm" name="action" value="category" type="submit">应用</button>
+      <input type="text" name="tag" placeholder="标签名" style="width:110px">
+      <button class="btn btn-sm" name="action" value="tag" type="submit">加标签</button>
+      <button class="btn btn-sm" name="action" value="reimbursable" type="submit">标记待报销</button>
+      <select name="account_id" style="width:auto">
+        <option value="">报销入账到…</option>
+        <% form.accounts.forEach(function(a){ %><option value="<%= a.id %>"><%= a.name %></option><% }); %>
+      </select>
+      <button class="btn btn-sm btn-primary" name="action" value="reimburse" type="submit">报销入账</button>
+    </div>
+  </div>
+</form>

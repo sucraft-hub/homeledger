@@ -1,0 +1,88 @@
+<%
+  var prevM = helpers.addMonths(month, -1);
+  var nextM = helpers.addMonths(month, 1);
+%>
+
+<div class="row between mb12">
+  <div class="row" style="gap:10px">
+    <a class="btn btn-sm" href="/calendar?month=<%= prevM %>">← 上月</a>
+    <h2><%= monthLabel %></h2>
+    <a class="btn btn-sm" href="/calendar?month=<%= nextM %>">下月 →</a>
+    <a class="btn btn-sm btn-ghost" href="/calendar">回到本月</a>
+  </div>
+  <div class="row" style="gap:14px">
+    <span class="small">支出 <b class="amount expense"><%= helpers.fmtAmount(monthSummary.expense) %></b></span>
+    <span class="small">收入 <b class="amount income"><%= helpers.fmtAmount(monthSummary.income) %></b></span>
+    <span class="small">结余 <b class="amount <%= monthSummary.net >= 0 ? 'income' : 'expense' %>"><%= helpers.fmtAmount(monthSummary.net) %></b></span>
+  </div>
+</div>
+
+<div class="grid grid-main">
+  <div>
+    <div class="card">
+      <div class="card-head"><h2>日历视图</h2><span class="muted small">点某一天看当天明细</span></div>
+      <div class="cal-grid mb8">
+        <% WEEKDAYS.forEach(function(w){ %><div class="cal-head"><%= w %></div><% }); %>
+        <% cells.forEach(function(c){ %>
+          <% if (!c) { %><div class="cal-cell empty"></div><% } else { %>
+            <a class="cal-cell active <%= c.date === today ? 'today' : '' %>" href="/calendar?month=<%= month %>&date=<%= c.date %>"
+               style="text-decoration:none;color:inherit;<%= c.count ? 'background:rgba(245,34,45,' + (0.04 + Math.min(c.expense / (maxExpense || 1), 1) * 0.14).toFixed(3) + ')' : '' %>">
+              <span class="d"><%= c.day %></span>
+              <% if (c.expense) { %><span class="e">-<%= helpers.fmtAmount(c.expense, c.expense >= 100000 ? 0 : 2) %></span><% } %>
+              <% if (c.income) { %><span class="i">+<%= helpers.fmtAmount(c.income, 2) %></span><% } %>
+            </a>
+          <% } %>
+        <% }); %>
+      </div>
+      <div class="tiny muted">颜色越深表示当天支出越多 · 蓝色边框是今天</div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>本月热力分布</h2></div>
+      <div class="chart-box">
+        <%- charts.calendarHeatmap({ month: month, days: days, today: today }) %>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card sticky-side">
+      <div class="card-head">
+        <h2><%= helpers.relDate(selected) %></h2>
+        <span class="muted small"><%= helpers.weekdayOf(selected) %></span>
+      </div>
+      <% var daySum = selectedRows.reduce(function(acc, t){ if (t.is_expense) acc.expense += t.amount_base_cents; if (t.is_income) acc.income += t.amount_base_cents; return acc; }, { expense: 0, income: 0 }); %>
+      <div class="row between mb12">
+        <span class="small">支出 <b class="amount expense"><%= helpers.fmtAmount(daySum.expense) %></b></span>
+        <span class="small">收入 <b class="amount income"><%= helpers.fmtAmount(daySum.income) %></b></span>
+        <a class="btn btn-sm btn-primary" href="/transactions/new?date=<%= selected %>">＋ 补记</a>
+      </div>
+      <% if (!selectedRows.length) { %>
+        <div class="empty" style="padding:22px 8px"><span class="big">📭</span>这天还没有记录</div>
+      <% } else { %>
+        <% selectedRows.forEach(function(t){ %>
+          <div class="txn" style="padding:8px 2px">
+            <div class="txn-ico" style="background:<%= t.category_color ? t.category_color + '18' : 'var(--card-2)' %>"><%= t.category_icon || t.type_icon %></div>
+            <div class="txn-main">
+              <div class="txn-title"><span><%= t.category_name || t.type_label %></span></div>
+              <div class="txn-sub"><span><%= t.account_name || '' %></span><% if (t.merchant) { %><span>· <%= t.merchant %></span><% } %></div>
+            </div>
+            <div class="txn-amt amount <%= t.is_income ? 'income' : (t.is_expense ? 'expense' : 'neutral') %>">
+              <%= (t.is_income ? '+' : t.is_expense ? '-' : '') %><%= helpers.fmtAmount(t.amount_cents) %>
+            </div>
+          </div>
+        <% }); %>
+      <% } %>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>本月支出 TOP</h2></div>
+      <% var top5 = days.slice().sort(function(a,b){ return b.expense - a.expense; }).slice(0, 5).filter(function(d){ return d.expense > 0; }); %>
+      <% if (!top5.length) { %>
+        <div class="empty" style="padding:16px">本月暂无支出</div>
+      <% } else { %>
+        <%- charts.rankBars(top5.map(function(d){ return { name: d.date.slice(5), value: d.expense / 100, color: '#f5222d' }; })) %>
+      <% } %>
+    </div>
+  </div>
+</div>

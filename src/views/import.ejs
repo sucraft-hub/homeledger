@@ -1,0 +1,51 @@
+<div class="card">
+  <div class="card-head">
+    <h2>导入支付宝 / 微信账单</h2>
+    <span class="muted small">自动识别编码与来源，自动映射分类与账户，自动去重</span>
+  </div>
+
+  <div class="dropzone" id="import-dropzone">
+    <span class="big">📥</span>
+    <div class="bold">把账单 CSV 文件拖到这里，或点击选择</div>
+    <div class="muted small mt8">支持支付宝账单、微信支付账单、以及通用 CSV（含日期/金额/备注列即可）</div>
+    <input type="file" id="import-file" accept=".csv,.txt,text/csv" class="hidden">
+  </div>
+
+  <div class="grid grid-3 mt16">
+    <div class="notice">
+      <b>支付宝</b><br>App → 我的 → 账单 → 右上角 ⋯ → 开具交易流水证明 → 用于个人对账 → 下载 CSV
+    </div>
+    <div class="notice">
+      <b>微信支付</b><br>我 → 服务 → 钱包 → 账单 → 常见问题 → 下载账单 → 用于个人对账 → 下载
+    </div>
+    <div class="notice">
+      <b>重复导入？</b><br>系统以「日期 + 金额 + 商家」判重，重复导入不会产生重复记录。
+    </div>
+  </div>
+</div>
+
+<div id="import-preview"></div>
+
+<div class="card">
+  <div class="card-head"><h2>导入历史</h2></div>
+  <% if (!jobs.length) { %>
+    <div class="empty" style="padding:20px"><span class="big">📄</span>还没有导入过账单</div>
+  <% } else { %>
+    <table class="table responsive">
+      <thead><tr><th>时间</th><th>来源</th><th>文件</th><th class="num">成功</th><th class="num">跳过</th><th class="num">失败</th><th>说明</th></tr></thead>
+      <tbody>
+        <% jobs.forEach(function(j){ %>
+          <tr>
+            <td class="nowrap muted small"><%= helpers.fmtDateTime(j.created_at) %></td>
+            <td><span class="chip"><%= { alipay:'支付宝', wechat:'微信支付', generic:'通用 CSV' }[j.source] || j.source %></span></td>
+            <td class="small"><%= j.file_name || '—' %></td>
+            <td class="num amount income"><%= j.imported %></td>
+            <td class="num muted"><%= j.skipped %></td>
+            <td class="num <%= j.failed ? 'amount expense' : 'muted' %>"><%= j.failed %></td>
+            <td class="tiny muted"><%= j.message || '—' %></td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  <% } %>
+</div>

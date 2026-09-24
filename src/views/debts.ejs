@@ -1,0 +1,115 @@
+<div class="grid grid-3 mb16">
+  <div class="stat">
+    <div class="label">别人欠我（应收）</div>
+    <div class="value amount income"><%= helpers.money(receivable) %></div>
+    <div class="delta">未结清的借出款项</div>
+  </div>
+  <div class="stat">
+    <div class="label">我欠别人（应付）</div>
+    <div class="value amount expense"><%= helpers.money(payable) %></div>
+    <div class="delta">未结清的借入款项</div>
+  </div>
+  <div class="stat">
+    <div class="label">净头寸</div>
+    <div class="value amount"><%= helpers.money(receivable - payable) %></div>
+    <div class="delta">应收 − 应付</div>
+  </div>
+</div>
+
+<div class="grid grid-main">
+  <div>
+    <div class="card">
+      <div class="card-head"><h2>台账明细</h2><span class="muted small">近 3 天到期的会自动提醒</span></div>
+      <% if (!debts.length) { %>
+        <div class="empty"><span class="big">🤝</span>还没有借贷记录<div class="small mt8">也可以直接记「借出 / 借入」，系统会自动汇总到这里</div></div>
+      <% } %>
+      <% debts.forEach(function(d){ %>
+        <div style="border-bottom:1px dashed var(--border);padding:10px 0">
+          <div class="row between">
+            <div>
+              <div class="bold">
+                <%= d.direction === 'receivable' ? '📥' : '📤' %>
+                <%= d.counterparty %>
+                <span class="chip <%= d.direction === 'receivable' ? 'income' : 'expense' %>"><%= d.direction === 'receivable' ? '应收' : '应付' %></span>
+                <% if (d.status === 'closed') { %><span class="chip">已结清</span><% } %>
+                <% if (d.note === '系统自动汇总') { %><span class="chip primary">自动</span><% } %>
+              </div>
+              <div class="tiny muted mt8">
+                <% if (d.account_name) { %>关联账户 <%= d.account_name %><% } %>
+                <% if (d.due_date) { %> · 到期 <%= d.due_date %><% } %>
+                <% if (d.note && d.note !== '系统自动汇总') { %> · <%= d.note %><% } %>
+              </div>
+            </div>
+            <div class="right">
+              <div class="amount <%= d.direction === 'receivable' ? 'income' : 'expense' %>"><%= helpers.money(d.balance_cents) %></div>
+              <div class="tiny muted">本金 <%= helpers.fmtAmount(d.principal_cents) %></div>
+            </div>
+          </div>
+          <% if (d.status === 'open') { %>
+            <div class="row mt8" style="gap:8px;flex-wrap:wrap">
+              <form method="post" action="/debts/<%= d.id %>/settle" class="row" style="gap:6px">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <input type="text" name="amount" inputmode="decimal" value="<%= (d.balance_cents/100).toFixed(2) %>" style="width:100px">
+                <select name="account_id" style="width:auto">
+                  <option value="">账户…</option>
+                  <% form.accounts.forEach(function(a){ %><option value="<%= a.id %>"><%= a.name %></option><% }); %>
+                </select>
+                <button class="btn btn-sm btn-primary" type="submit"><%= d.direction === 'receivable' ? '收款核销' : '还款核销' %></button>
+              </form>
+              <form method="post" action="/debts/<%= d.id %>/delete" data-confirm="删除该台账记录？">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <button class="btn btn-sm btn-ghost">删除</button>
+              </form>
+            </div>
+          <% } %>
+        </div>
+      <% }); %>
+    </div>
+  </div>
+
+  <div>
+    <div class="card sticky-side">
+      <div class="card-head"><h2>新增借贷</h2></div>
+      <form method="post" action="/debts">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <div class="field">
+          <label>方向</label>
+          <select name="direction">
+            <option value="receivable">我借给别人（应收）</option>
+            <option value="payable">我向别人借（应付）</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>对方</label>
+          <input type="text" name="counterparty" placeholder="姓名或称呼" required>
+        </div>
+        <div class="field">
+          <label>金额</label>
+          <input type="text" name="amount" inputmode="decimal" placeholder="0.00" required>
+        </div>
+        <div class="row wrap" style="gap:10px">
+          <div class="field" style="flex:1;min-width:110px">
+            <label>涉及账户</label>
+            <select name="account_id">
+              <option value="">不涉及</option>
+              <% form.accounts.forEach(function(a){ %><option value="<%= a.id %>"><%= a.icon %> <%= a.name %></option><% }); %>
+            </select>
+          </div>
+          <div class="field" style="flex:1;min-width:110px">
+            <label>到期日</label>
+            <input type="date" name="due_date">
+          </div>
+        </div>
+        <div class="field">
+          <label>备注</label>
+          <input type="text" name="note" placeholder="例如：借款买电脑">
+        </div>
+        <label class="check mb12"><input type="checkbox" name="create_txn" value="1" checked> 同时生成账户流水（推荐）</label>
+        <button class="btn btn-primary btn-block" type="submit">保存</button>
+      </form>
+      <div class="notice small mt12">
+        勾选「生成流水」时，系统会记一笔「借出 / 借入」，钱会从账户里进出；关闭则只登记台账不影响余额。
+      </div>
+    </div>
+  </div>
+</div>

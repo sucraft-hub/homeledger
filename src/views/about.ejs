@@ -1,0 +1,109 @@
+<div class="about-hero card">
+  <div class="about-hero-main">
+    <div class="brand-logo" style="width:56px;height:56px;font-size:28px;border-radius:15px">📒</div>
+    <div>
+      <div class="row" style="gap:10px;flex-wrap:wrap">
+        <h2 style="font-size:20px"><%= app.name %></h2>
+        <span class="chip primary">v<%= version %></span>
+        <% changelog.forEach(function(c){ if (c.tag) { %><span class="chip"><%= c.tag %></span><% } }); %>
+      </div>
+      <div class="muted" style="margin-top:4px"><%= app.slogan %></div>
+      <div class="small muted" style="margin-top:8px;max-width:640px"><%= app.description %></div>
+    </div>
+  </div>
+  <div class="grid grid-4 about-stats">
+    <div class="stat"><div class="label">📒 记录笔数</div><div class="value"><%= stats.txns %></div></div>
+    <div class="stat"><div class="label">📚 账本数</div><div class="value"><%= stats.ledgers %></div></div>
+    <div class="stat"><div class="label">📅 陪伴天数</div><div class="value"><%= stats.days %></div></div>
+    <div class="stat"><div class="label">💾 数据体积</div><div class="value"><%= stats.sizeLabel %></div></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2>✨ 功能亮点</h2></div>
+  <div class="grid grid-3 about-features">
+    <% features.forEach(function(f){ %>
+      <div class="about-feature">
+        <div class="ico"><%= f.ico %></div>
+        <div>
+          <b><%= f.title %></b>
+          <div class="small muted" style="margin-top:2px"><%= f.desc %></div>
+        </div>
+      </div>
+    <% }); %>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2>💡 提功能需求</h2></div>
+  <div class="about-feedback">
+    <div class="about-fb-text">
+      <div>在使用中遇到不顺手的地方，或者想到新功能，欢迎到 GitHub 提 Issue：</div>
+      <ul class="small muted" style="margin:6px 0 0 18px">
+        <li>标题一句话说清需求，例如「支持周期转账的备注模板」</li>
+        <li>正文写清楚使用场景和期望效果，越具体越容易被排期</li>
+        <li>Bug 反馈也走同一入口，请附上操作步骤（无需截图敏感数据）</li>
+      </ul>
+    </div>
+    <% if (issuesUrl) { %>
+      <a class="btn btn-primary" href="<%= issuesUrl %>" target="_blank" rel="noopener">🐙 去 GitHub 提需求 / 报 Bug</a>
+    <% } else { %>
+      <span class="btn" style="opacity:.55;cursor:not-allowed" title="管理员尚未配置仓库地址">🐙 去 GitHub 提需求 / 报 Bug</span>
+      <div class="tiny muted" style="margin-top:6px">仓库地址暂未配置：在 <b>src/lib/about.js</b> 的 <code>GITHUB_REPO</code> 中填入仓库地址即可开启。</div>
+    <% } %>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2>🕘 版本日志</h2></div>
+  <div class="about-timeline">
+    <% changelog.forEach(function(c){ %>
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-body">
+          <div class="row" style="gap:8px;flex-wrap:wrap">
+            <b>v<%= c.version %></b>
+            <span class="tiny muted"><%= c.date %></span>
+            <% if (c.tag) { %><span class="chip primary"><%= c.tag %></span><% } %>
+          </div>
+          <ul class="small muted" style="margin:6px 0 0 18px">
+            <% c.items.forEach(function(it){ %><li><%= it %></li><% }); %>
+          </ul>
+        </div>
+      </div>
+    <% }); %>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h2>🧱 技术栈</h2></div>
+    <div class="row wrap" style="gap:8px">
+      <% tech.forEach(function(t){ %>
+        <span class="chip" title="<%= t.desc %>"><b><%= t.name %></b>&nbsp;<span class="tiny muted"><%= t.desc %></span></span>
+      <% }); %>
+    </div>
+    <div class="notice info small" style="margin-top:12px">
+      🔒 数据与隐私：所有账目、附件仅存储在本机数据目录（<code><%= envInfo.dataDir %></code>），不上传任何第三方服务器；AI 功能仅在管理员主动配置模型后按需调用。
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>⚙️ 运行环境</h2><span class="muted small">点击展开/收起</span></div>
+    <details>
+      <summary class="small muted" style="cursor:pointer">技术细节（Node / 数据目录 / 运行时长）</summary>
+      <table class="table small" style="margin-top:10px">
+        <tbody>
+          <tr><td class="muted">Node 版本</td><td><%= envInfo.node %></td></tr>
+          <tr><td class="muted">运行平台</td><td><%= envInfo.platform %></td></tr>
+          <tr><td class="muted">时区</td><td><%= envInfo.tz %></td></tr>
+          <tr><td class="muted">本次运行时长</td><td><%= Math.floor(envInfo.uptime / 3600) %> 小时 <%= Math.floor(envInfo.uptime % 3600 / 60) %> 分钟</td></tr>
+          <tr><td class="muted">数据目录</td><td style="word-break:break-all"><code><%= envInfo.dataDir %></code></td></tr>
+        </tbody>
+      </table>
+    </details>
+    <div class="small muted" style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+      由 <b><%= app.author %></b> 维护 · <%= app.aiNote %>
+    </div>
+  </div>
+</div>

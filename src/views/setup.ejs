@@ -1,0 +1,32 @@
+<h1 style="font-size:18px;margin-bottom:6px">初始化你的账本</h1>
+<p class="muted small mb16">这是第一次启动，请创建管理员账号</p>
+
+<% if (error) { %>
+  <div class="flash error"><span><%= error %></span></div>
+<% } %>
+
+<form method="post" action="/setup">
+  <input type="hidden" name="_csrf" value="<%= csrf %>">
+  <div class="field">
+    <label>站点名称</label>
+    <input type="text" name="site_name" value="<%= form.site_name || '家账簿' %>" maxlength="20">
+  </div>
+  <div class="field">
+    <label>管理员用户名</label>
+    <input type="text" name="username" value="<%= form.username || '' %>" required autofocus>
+  </div>
+  <div class="field">
+    <label>昵称</label>
+    <input type="text" name="display_name" value="<%= form.display_name || '' %>" placeholder="例如：老王">
+  </div>
+  <div class="field">
+    <label>管理员密码</label>
+    <input type="password" name="password" autocomplete="new-password" required>
+    <div class="help">至少 8 位，建议同时包含字母与数字</div>
+  </div>
+  <div class="field">
+    <label>确认密码</label>
+    <input type="password" name="password2" autocomplete="new-password" required>
+  </div>
+  <button class="btn btn-primary btn-block btn-lg" type="submit">创建并进入</button>
+</form>

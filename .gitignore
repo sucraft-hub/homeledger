@@ -1,0 +1,13 @@
+node_modules/
+data/
+data.old-e2e/
+data-verify/
+data-verify-*/
+.env
+.tmp/
+*.log
+dist/
+*.fpk
+*-out.txt
+ui-*.png
+_cc.txt

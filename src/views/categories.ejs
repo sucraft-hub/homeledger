@@ -1,0 +1,70 @@
+<div class="notice info mb16">
+  系统内置了 <%= expenseTree.length + incomeTree.length %> 个一级分类、数百个二级分类，覆盖市面主流记账场景。你可以自由新建自己的分类；内置分类不可修改，但可以归档掉不用的。
+</div>
+
+<div class="grid grid-2">
+  <% [ { title:'支出分类', tree: expenseTree, kind:'expense' }, { title:'收入分类', tree: incomeTree, kind:'income' } ].forEach(function(sec){ %>
+    <div class="card">
+      <div class="card-head"><h2><%= sec.title %></h2>
+        <span class="muted small">近一年使用统计</span>
+      </div>
+      <% sec.tree.forEach(function(root){ %>
+        <div style="border-bottom:1px dashed var(--border);padding:8px 0">
+          <div class="row between">
+            <span class="bold"><%= root.icon %> <%= root.name %></span>
+            <span class="muted tiny">合计 <%= helpers.fmtAmount(root.children.reduce(function(s,c){ return s + Number(c.stat.total); }, 0) + Number(root.stat.total)) %></span>
+          </div>
+          <div class="row wrap mt8" style="gap:6px">
+            <% root.children.forEach(function(c){ %>
+              <span class="chip" title="<%= c.stat.cnt %> 笔 · <%= helpers.fmtAmount(c.stat.total) %>">
+                <%= c.icon %> <%= c.name %>
+                <% if (Number(c.stat.cnt) > 0) { %><span class="muted tiny"><%= c.stat.cnt %></span><% } %>
+                <% if (Number(c.ledger_id) === ledger.id) { %>
+                  <form method="post" action="/categories/<%= c.id %>/delete" style="display:inline" data-confirm="删除分类「<%= c.name %>」？">
+                    <input type="hidden" name="_csrf" value="<%= csrf %>">
+                    <button class="btn btn-sm btn-ghost" style="padding:0 2px;font-size:10px">✕</button>
+                  </form>
+                <% } %>
+              </span>
+            <% }); %>
+          </div>
+        </div>
+      <% }); %>
+    </div>
+  <% }); %>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2>新建分类</h2></div>
+  <form method="post" action="/categories">
+    <input type="hidden" name="_csrf" value="<%= csrf %>">
+    <div class="row wrap" style="gap:12px">
+      <div class="field" style="flex:1;min-width:140px">
+        <label>分类名称</label>
+        <input type="text" name="name" placeholder="例如：代驾" required>
+      </div>
+      <div class="field" style="flex:1;min-width:120px">
+        <label>收支类型</label>
+        <select name="kind">
+          <option value="expense">支出</option>
+          <option value="income">收入</option>
+        </select>
+      </div>
+      <div class="field" style="flex:2;min-width:150px">
+        <label>归属一级分类</label>
+        <select name="parent_id">
+          <option value="">作为一级分类</option>
+          <optgroup label="支出">
+            <% expenseTree.forEach(function(r){ %><option value="<%= r.id %>"><%= r.icon %> <%= r.name %></option><% }); %>
+          </optgroup>
+          <optgroup label="收入">
+            <% incomeTree.forEach(function(r){ %><option value="<%= r.id %>"><%= r.icon %> <%= r.name %></option><% }); %>
+          </optgroup>
+        </select>
+      </div>
+      <div class="field" style="flex:0 0 80px"><label>图标</label><input type="text" name="icon" value="🏷️"></div>
+      <div class="field" style="flex:0 0 80px"><label>颜色</label><input type="color" name="color" value="#4f7cff"></div>
+      <div class="field"><button class="btn btn-primary" type="submit">添加</button></div>
+    </div>
+  </form>
+</div>

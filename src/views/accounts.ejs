@@ -1,0 +1,183 @@
+<div class="grid grid-3 mb16">
+  <div class="stat">
+    <div class="label">净资产</div>
+    <div class="value amount <%= overview.net >= 0 ? '' : 'expense' %>"><%= helpers.money(overview.net) %></div>
+    <div class="delta">资产 − 负债</div>
+  </div>
+  <div class="stat">
+    <div class="label">总资产</div>
+    <div class="value amount"><%= helpers.money(overview.assets) %></div>
+    <div class="delta">现金、储蓄、虚拟、投资等</div>
+  </div>
+  <div class="stat">
+    <div class="label">总负债</div>
+    <div class="value amount expense"><%= helpers.money(overview.liabilities) %></div>
+    <div class="delta">信用卡、贷款、应付款</div>
+  </div>
+</div>
+
+<div class="row between mb12">
+  <div class="muted small">共 <%= accounts.length %> 个在用账户<%= archived.length ? '，' + archived.length + ' 个已停用' : '' %></div>
+  <a class="btn btn-primary btn-sm" href="#new-account">＋ 添加账户</a>
+</div>
+
+<div class="grid grid-2">
+  <% ACCOUNT_TYPES.forEach(function(tp){ %>
+    <% if (groups[tp.key] && groups[tp.key].length) { %>
+      <div class="card">
+        <div class="card-head"><h2><%= tp.icon %> <%= tp.label %></h2>
+          <span class="muted small">
+            合计 <%= helpers.money(groups[tp.key].reduce(function(s,a){ return s + Number(a.balance_cents); }, 0)) %>
+          </span>
+        </div>
+        <% groups[tp.key].forEach(function(a){ %>
+          <div style="border-bottom:1px dashed var(--border);padding:9px 0">
+            <div class="row between">
+              <a href="/accounts/<%= a.id %>" style="min-width:0">
+                <div class="bold"><%= a.icon %> <%= a.name %></div>
+                <div class="tiny muted">
+                  <%= a.currency %>
+                  <% if (a.card_no) { %> · 尾号 <%= a.card_no %><% } %>
+                  <% if (a.bill_day) { %> · 账单日 <%= a.bill_day %> 号<% } %>
+                  <% if (a.due_day) { %> · 还款日 <%= a.due_day %> 号<% } %>
+                </div>
+              </a>
+              <div class="right">
+                <div class="amount <%= Number(a.balance_cents) < 0 ? 'expense' : (a.isLiability ? 'expense' : '') %>"><%= helpers.money(a.balance_cents, a.currency) %></div>
+                <div class="tiny muted">近30天 −<%= helpers.fmtAmount(a.flow.out) %> / +<%= helpers.fmtAmount(a.flow.inflow) %></div>
+              </div>
+            </div>
+            <div class="row tiny mt8" style="gap:8px">
+              <a href="/accounts/<%= a.id %>">明细</a>
+              <a href="#" class="acc-edit" data-id="<%= a.id %>">编辑</a>
+              <a href="#" class="acc-adjust" data-id="<%= a.id %>" data-balance="<%= (a.balance_cents/100).toFixed(2) %>">余额调整</a>
+              <form method="post" action="/accounts/<%= a.id %>/archive" style="display:inline">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <button class="btn btn-sm btn-ghost" style="padding:0;font-size:11px">停用</button>
+              </form>
+              <form method="post" action="/accounts/<%= a.id %>/delete" style="display:inline" data-confirm="确定删除账户「<%= a.name %>」？">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <button class="btn btn-sm btn-ghost" style="padding:0;font-size:11px;color:var(--expense)">删除</button>
+              </form>
+            </div>
+
+            <div class="acc-edit-form hidden mt12" data-id="<%= a.id %>" style="background:var(--card-2);padding:12px;border-radius:10px">
+              <form method="post" action="/accounts/<%= a.id %>">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <div class="row wrap" style="gap:10px">
+                  <div class="field" style="flex:2;min-width:130px"><label>名称</label><input type="text" name="name" value="<%= a.name %>"></div>
+                  <div class="field" style="flex:1;min-width:100px"><label>图标</label><input type="text" name="icon" value="<%= a.icon %>"></div>
+                  <div class="field" style="flex:1;min-width:120px"><label>类型</label><select name="type">
+                    <% ACCOUNT_TYPES.forEach(function(t2){ %><option value="<%= t2.key %>" <%= a.type === t2.key ? 'selected' : '' %>><%= t2.label %></option><% }); %>
+                  </select></div>
+                  <div class="field" style="flex:1;min-width:110px"><label>初始余额</label><input type="text" name="initial_balance" inputmode="decimal" value="<%= (a.initial_cents/100).toFixed(2) %>"></div>
+                  <div class="field" style="flex:1;min-width:110px"><label>额度</label><input type="text" name="credit_limit" inputmode="decimal" value="<%= a.credit_limit ? (a.credit_limit/100).toFixed(2) : '' %>"></div>
+                  <div class="field" style="flex:1;min-width:90px"><label>账单日</label><input type="number" name="bill_day" min="1" max="31" value="<%= a.bill_day || '' %>"></div>
+                  <div class="field" style="flex:1;min-width:90px"><label>还款日</label><input type="number" name="due_day" min="1" max="31" value="<%= a.due_day || '' %>"></div>
+                </div>
+                <div class="row">
+                  <label class="check"><input type="checkbox" name="include_in_net" value="1" <%= a.include_in_net ? 'checked' : '' %>> 计入净资产</label>
+                  <span class="spacer"></span>
+                  <button class="btn btn-sm btn-primary" type="submit">保存</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="acc-adjust-form hidden mt12" data-id="<%= a.id %>" style="background:var(--card-2);padding:12px;border-radius:10px">
+              <form method="post" action="/accounts/<%= a.id %>/adjust">
+                <input type="hidden" name="_csrf" value="<%= csrf %>">
+                <p class="small muted mb8">把这个账户的账面余额对齐到实际金额，差额会记为一笔「余额调整」，不影响收支统计。</p>
+                <div class="row wrap" style="gap:10px">
+                  <div class="field" style="flex:1;min-width:120px"><label>实际余额</label><input type="text" name="actual_balance" inputmode="decimal" value="<%= (a.balance_cents/100).toFixed(2) %>"></div>
+                  <div class="field" style="flex:1;min-width:120px"><label>日期</label><input type="date" name="adjust_date" value="<%= today || '' %>"></div>
+                  <div class="field" style="flex:2;min-width:140px"><label>说明</label><input type="text" name="note" placeholder="例如：对账差异"></div>
+                </div>
+                <button class="btn btn-sm btn-primary" type="submit">确认调整</button>
+              </form>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+    <% } %>
+  <% }); %>
+</div>
+
+<% if (!accounts.length) { %>
+  <div class="card"><div class="empty"><span class="big">💳</span>还没有账户<div class="small mt8">添加现金、银行卡、支付宝、微信钱包等账户后即可开始记账</div></div></div>
+<% } %>
+
+<% if (archived.length) { %>
+  <div class="card">
+    <div class="card-head"><h2>已停用账户</h2><span class="muted small">历史记录仍完整保留</span></div>
+    <div class="row wrap" style="gap:8px">
+      <% archived.forEach(function(a){ %>
+        <span class="chip"><%= a.icon %> <%= a.name %>
+          <form method="post" action="/accounts/<%= a.id %>/archive" style="display:inline">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <button class="btn btn-sm btn-ghost" style="padding:0 2px;font-size:11px">恢复</button>
+          </form>
+        </span>
+      <% }); %>
+    </div>
+  </div>
+<% } %>
+
+<div class="card" id="new-account">
+  <div class="card-head"><h2>添加账户</h2></div>
+  <form method="post" action="/accounts">
+    <input type="hidden" name="_csrf" value="<%= csrf %>">
+    <div class="row wrap" style="gap:12px">
+      <div class="field" style="flex:2;min-width:150px">
+        <label>账户名称</label>
+        <input type="text" name="name" placeholder="例如：招商银行储蓄卡" required>
+      </div>
+      <div class="field" style="flex:2;min-width:150px">
+        <label>账户类型</label>
+        <select name="type" id="new-acc-type">
+          <% ACCOUNT_TYPES.forEach(function(t){ %><option value="<%= t.key %>"><%= t.icon %> <%= t.label %></option><% }); %>
+        </select>
+      </div>
+      <div class="field" style="flex:1;min-width:90px"><label>图标</label><input type="text" name="icon" value="💵"></div>
+      <div class="field" style="flex:1;min-width:120px"><label>初始余额</label><input type="text" name="initial_balance" inputmode="decimal" placeholder="0.00"></div>
+      <div class="field" style="flex:1;min-width:120px"><label>币种</label><select name="currency">
+        <% ['CNY','USD','EUR','HKD','JPY','GBP','SGD'].forEach(function(c){ %><option value="<%= c %>" <%= c === baseCurrency ? 'selected' : '' %>><%= c %></option><% }); %>
+      </select></div>
+    </div>
+    <div class="row wrap" style="gap:12px">
+      <div class="field" style="flex:1;min-width:130px"><label>额度（信用卡）</label><input type="text" name="credit_limit" inputmode="decimal"></div>
+      <div class="field" style="flex:1;min-width:100px"><label>账单日</label><input type="number" name="bill_day" min="1" max="31"></div>
+      <div class="field" style="flex:1;min-width:100px"><label>还款日</label><input type="number" name="due_day" min="1" max="31"></div>
+      <div class="field" style="flex:2;min-width:150px"><label>备注</label><input type="text" name="note"></div>
+    </div>
+    <div class="row">
+      <label class="check"><input type="checkbox" name="include_in_net" value="1" checked> 计入净资产</label>
+      <span class="spacer"></span>
+      <button class="btn btn-primary" type="submit">创建账户</button>
+    </div>
+  </form>
+</div>
+
+<script>
+(function(){
+  document.querySelectorAll('.acc-edit').forEach(function(a){
+    a.addEventListener('click', function(e){
+      e.preventDefault();
+      var f = document.querySelector('.acc-edit-form[data-id="' + a.dataset.id + '"]');
+      if (f) f.classList.toggle('hidden');
+    });
+  });
+  document.querySelectorAll('.acc-adjust').forEach(function(a){
+    a.addEventListener('click', function(e){
+      e.preventDefault();
+      var f = document.querySelector('.acc-adjust-form[data-id="' + a.dataset.id + '"]');
+      if (f) f.classList.toggle('hidden');
+    });
+  });
+  var sel = document.getElementById('new-acc-type');
+  if (sel) sel.addEventListener('change', function(){
+    var map = { cash:'💵', debit:'🏦', credit:'💳', virtual:'📱', prepaid:'🎫', investment:'📈', receivable:'📥', payable:'📤', loan:'🏚️', other:'📦' };
+    var iconInput = document.querySelector('input[name="icon"]');
+    if (iconInput && map[sel.value]) iconInput.value = map[sel.value];
+  });
+})();
+</script>

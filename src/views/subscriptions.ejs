@@ -1,0 +1,296 @@
+<%
+  var isEdit = !!edit;
+  var s = edit || {};
+  var val = function (k, d) { return s[k] === undefined || s[k] === null ? d : s[k]; };
+  var checked = function (k, d) { var v = s[k]; return v === undefined ? d : !!Number(v); };
+%>
+
+<div class="notice info mb16">
+  管好每一个「自动续费」：软件、会员、云盘、服务器……填一次，之后到期自动记账、到期前提醒你，
+  还能一眼看出<b>每月固定被扣走多少钱</b>、哪些该退了。
+  <span class="muted">与「周期账单」的区别：周期账单管房租工资等任意固定收支，这里专门管订阅制消费。</span>
+</div>
+
+<div class="grid grid-4 mb16">
+  <div class="stat">
+    <div class="label">生效中订阅</div>
+    <div class="value"><%= sums.live.length %></div>
+    <div class="delta">
+      <% if (sums.trials.length) { %>试用中 <%= sums.trials.length %> · <% } %>已暂停 <%= sums.paused.length + sums.canceled.length %>
+    </div>
+  </div>
+  <div class="stat">
+    <div class="label">每月固定支出</div>
+    <div class="value amount expense"><%= helpers.fmtAmount(sums.monthlyTotal) %></div>
+    <div class="delta">按当前生效订阅摊平到每月</div>
+  </div>
+  <div class="stat">
+    <div class="label">每年合计</div>
+    <div class="value amount expense"><%= helpers.fmtAmount(sums.annualTotal) %></div>
+    <div class="delta">年付 / 半年付 <%= sums.annualPaidCount %> 项已按周期摊平</div>
+  </div>
+  <div class="stat">
+    <div class="label">本月待扣 / 已扣</div>
+    <div class="value"><%= sums.dueThisMonth %> <span class="tiny muted">笔</span></div>
+    <div class="delta">本月已扣 <%= helpers.fmtAmount(sums.thisMonthCharged) %><%= sums.upcoming ? ' · 最近 ' + sums.upcoming.name + ' ' + sums.upcoming.dueLabel : '' %></div>
+  </div>
+</div>
+
+<div class="grid grid-main">
+  <div>
+    <% if (!sums.items.length) { %>
+      <div class="card">
+        <div class="empty">
+          <span class="big">🧾</span>还没有订阅
+          <div class="small mt8">在右侧添加，例如「Netflix 每月 15 号 45 元」，或点上方常用服务快选</div>
+        </div>
+      </div>
+    <% } %>
+
+    <% [['生效中', sums.active], ['试用中', sums.trials], ['已暂停', sums.paused], ['已取消', sums.canceled]].forEach(function(pair){
+         var title = pair[0], list = pair[1];
+         if (!list.length) return; %>
+      <div class="row between mt8 mb8">
+        <h2 class="tiny muted" style="letter-spacing:1px"><%= title %>（<%= list.length %>）</h2>
+      </div>
+      <% list.forEach(function(it){ %>
+        <div class="card mb12">
+          <div class="row between">
+            <div class="row" style="gap:10px;align-items:flex-start">
+              <div style="font-size:26px;line-height:1.1"><%= it.icon %></div>
+              <div>
+                <h2 style="margin:0">
+                  <%= it.name %>
+                  <% if (it.plan) { %><span class="muted" style="font-weight:400;font-size:13px">· <%= it.plan %></span><% } %>
+                </h2>
+                <div class="tiny muted mt8">
+                  <span class="chip <%= it.statusKind %>" style="margin-right:6px"><%= it.statusLabel %></span>
+                  <span class="chip" style="margin-right:6px"><%= it.cycleLabel %></span>
+                  <% if (it.auto_renew) { %><span class="chip primary">到期自动记账</span><% } else { %><span class="chip warn">仅提醒</span><% } %>
+                  <% if (it.trial_ends_on) { %><span class="chip <%= it.trialDue ? 'warn' : '' %>">试用至 <%= it.trial_ends_on %></span><% } %>
+                </div>
+              </div>
+            </div>
+            <div class="right">
+              <div class="amount expense" style="font-size:18px"><%= helpers.fmtAmount(it.amount_cents) %></div>
+              <div class="tiny muted"><%= it.cycleLabel %> · 月均 <%= helpers.fmtAmount(it.monthly_cents) %></div>
+            </div>
+          </div>
+
+          <div class="row wrap mt12 tiny muted" style="gap:14px">
+            <span><%= it.status === 'canceled' ? '已取消' : '下次扣费' %>：<b class="<%= it.daysLeft !== null && it.daysLeft <= 3 && it.status !== 'canceled' ? 'amount expense' : '' %>"><%= it.next_charge_at %></b>
+              <% if (it.status !== 'canceled') { %>（<%= it.dueLabel %>）<% } %></span>
+            <% if (it.last_charge_at) { %><span>上次扣费：<%= it.last_charge_at %></span><% } %>
+            <% if (it.account_name) { %><span>账户：<%= it.account_name %></span><% } %>
+            <% if (it.category_name) { %><span>分类：<%= it.category_icon || '' %> <%= it.category_name %></span><% } %>
+            <% if (it.charge_count) { %><span>已自动记账 <%= it.charge_count %> 笔</span><% } %>
+            <% if (it.annual_cents && it.cycle !== 'monthly') { %><span>全年 <%= helpers.fmtAmount(it.annual_cents) %></span><% } %>
+          </div>
+
+          <% if (it.note) { %><div class="tiny muted mt8">📝 <%= it.note %></div><% } %>
+
+          <div class="row tiny mt12" style="gap:12px;flex-wrap:wrap">
+            <form method="post" action="/subscriptions/<%= it.id %>/charge" style="display:inline">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <button class="btn btn-sm" style="padding:2px 8px;font-size:11px">立即扣费一期</button>
+            </form>
+            <% if (it.status !== 'canceled') { %>
+            <form method="post" action="/subscriptions/<%= it.id %>/skip" style="display:inline">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <button class="btn btn-sm btn-ghost" style="padding:0;font-size:11px">跳过本期</button>
+            </form>
+            <% } %>
+            <form method="post" action="/subscriptions/<%= it.id %>/toggle" style="display:inline">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <button class="btn btn-sm btn-ghost" style="padding:0;font-size:11px"><%= (it.status === 'paused' || it.status === 'canceled') ? '恢复' : '暂停' %></button>
+            </form>
+            <% if (it.status !== 'canceled') { %>
+            <form method="post" action="/subscriptions/<%= it.id %>/cancel" style="display:inline" data-confirm="把「<%= it.name %>」标记为已取消？历史扣费记录会保留。">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <button class="btn btn-sm btn-ghost" style="padding:0;font-size:11px">标记已取消</button>
+            </form>
+            <% } %>
+            <a class="btn btn-sm btn-ghost" style="padding:0;font-size:11px" href="/subscriptions/<%= it.id %>/edit">编辑</a>
+            <% if (it.vendor_url) { %>
+              <a class="btn btn-sm btn-ghost" style="padding:0;font-size:11px" href="<%= it.vendor_url %>" target="_blank" rel="noopener noreferrer">管理页 ↗</a>
+            <% } %>
+            <form method="post" action="/subscriptions/<%= it.id %>/delete" style="display:inline" data-confirm="删除订阅「<%= it.name %>」？已生成的流水不受影响。">
+              <input type="hidden" name="_csrf" value="<%= csrf %>">
+              <button class="btn btn-sm btn-ghost" style="padding:0;font-size:11px;color:var(--expense)">删除</button>
+            </form>
+          </div>
+        </div>
+      <% }); %>
+    <% }); %>
+
+    <% if (isEdit && history && history.length) { %>
+      <div class="card">
+        <div class="card-head"><h2>历史扣费记录</h2><span class="tiny muted">最近 <%= history.length %> 笔</span></div>
+        <% history.forEach(function(h){ %>
+          <div class="row between small" style="padding:5px 0;border-bottom:1px dashed var(--border)">
+            <span><a href="/transactions/<%= h.id %>/edit"><%= h.txn_date %></a> · <%= h.note %></span>
+            <span class="amount"><%= helpers.fmtAmount(h.amount_base_cents) %></span>
+          </div>
+        <% }); %>
+      </div>
+    <% } %>
+  </div>
+
+  <div>
+    <div class="card sticky-side">
+      <div class="card-head">
+        <h2><%= isEdit ? '编辑订阅' : '添加订阅' %></h2>
+        <% if (isEdit) { %><a class="tiny" href="/subscriptions">← 返回新建</a><% } %>
+      </div>
+
+      <% if (!isEdit) { %>
+        <div class="field">
+          <label>常用服务快选</label>
+          <div class="row wrap" style="gap:6px">
+            <% presets.forEach(function(p, i){ %>
+              <button type="button" class="chip sub-preset" data-name="<%= p.name %>" data-icon="<%= p.icon %>" data-cycle="<%= p.cycle %>"><%= p.icon %> <%= p.name %></button>
+            <% }); %>
+          </div>
+        </div>
+      <% } %>
+
+      <form method="post" action="<%= isEdit ? '/subscriptions/' + s.id : '/subscriptions' %>" id="sub-form">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+
+        <div class="row" style="gap:8px">
+          <div class="field" style="flex:0 0 66px">
+            <label>图标</label>
+            <input type="text" name="icon" value="<%= val('icon', '🧾') %>" maxlength="4">
+          </div>
+          <div class="field" style="flex:1">
+            <label>订阅名称</label>
+            <input type="text" name="name" value="<%= val('name', '') %>" placeholder="例如：Netflix" required>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>套餐 / 说明（选填）</label>
+          <input type="text" name="plan" value="<%= val('plan', '') %>" placeholder="例如：高级会员 · 4 人共享">
+        </div>
+
+        <div class="row" style="gap:8px">
+          <div class="field" style="flex:1">
+            <label>每期金额</label>
+            <input type="text" name="amount" inputmode="decimal" value="<%= s.amount_cents ? (s.amount_cents / 100).toFixed(2) : '' %>" placeholder="45.00" required>
+          </div>
+          <div class="field" style="flex:0 0 92px">
+            <label>币种</label>
+            <select name="currency">
+              <% ['CNY', 'USD', 'HKD', 'JPY', 'EUR'].forEach(function(c){ %>
+                <option value="<%= c %>" <%= val('currency', 'CNY') === c ? 'selected' : '' %>><%= c %></option>
+              <% }); %>
+            </select>
+          </div>
+        </div>
+
+        <div class="row" style="gap:8px">
+          <div class="field" style="flex:1">
+            <label>计费周期</label>
+            <select name="cycle" id="sub-cycle">
+              <% [['monthly','每月'],['quarterly','每季'],['half_yearly','每半年'],['yearly','每年'],['weekly','每周']].forEach(function(c){ %>
+                <option value="<%= c[0] %>" <%= val('cycle', 'monthly') === c[0] ? 'selected' : '' %>><%= c[1] %></option>
+              <% }); %>
+            </select>
+          </div>
+          <div class="field" style="flex:0 0 84px">
+            <label>每几期</label>
+            <input type="number" name="cycle_n" min="1" max="12" value="<%= val('cycle_n', 1) %>">
+          </div>
+          <div class="field" style="flex:0 0 84px">
+            <label>扣费日</label>
+            <input type="number" name="anchor_day" min="1" max="31" value="<%= val('anchor_day', Number(today.slice(8, 10))) %>">
+          </div>
+          <div class="field" style="flex:0 0 92px">
+            <label>年付月份</label>
+            <input type="number" name="anchor_month" min="1" max="12" value="<%= val('anchor_month', '') %>" placeholder="选填">
+          </div>
+        </div>
+
+        <div class="row" style="gap:8px">
+          <div class="field" style="flex:1">
+            <label>下次扣费日</label>
+            <input type="date" name="next_charge_at" value="<%= val('next_charge_at', today) %>">
+          </div>
+          <div class="field" style="flex:0 0 110px">
+            <label>状态</label>
+            <select name="status">
+              <% [['active','生效中'],['trial','试用中'],['paused','已暂停']].forEach(function(c){ %>
+                <option value="<%= c[0] %>" <%= val('status', 'active') === c[0] ? 'selected' : '' %>><%= c[1] %></option>
+              <% }); %>
+            </select>
+          </div>
+        </div>
+
+        <div class="row" style="gap:8px">
+          <div class="field" style="flex:1">
+            <label>试用结束日（选填）</label>
+            <input type="date" name="trial_ends_on" value="<%= val('trial_ends_on', '') %>">
+          </div>
+          <div class="field" style="flex:0 0 110px">
+            <label>提前提醒</label>
+            <input type="number" name="reminder_days" min="0" max="60" value="<%= val('reminder_days', 3) %>">
+          </div>
+        </div>
+
+        <div class="row" style="gap:8px">
+          <div class="field" style="flex:1">
+            <label>扣费账户</label>
+            <select name="account_id">
+              <option value="">未指定</option>
+              <% form.accounts.forEach(function(a){ %>
+                <option value="<%= a.id %>" <%= Number(val('account_id', 0)) === Number(a.id) ? 'selected' : '' %>><%= a.name %></option>
+              <% }); %>
+            </select>
+          </div>
+          <div class="field" style="flex:1">
+            <label>分类</label>
+            <select name="category_id">
+              <option value="">未分类</option>
+              <% form.expenseCats.forEach(function(c){ if (c.parent_id) { %>
+                <option value="<%= c.id %>" <%= Number(val('category_id', 0)) === Number(c.id) ? 'selected' : '' %>><%= c.path %></option>
+              <% } }); %>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>管理页地址（选填）</label>
+          <input type="text" name="vendor_url" value="<%= val('vendor_url', '') %>" placeholder="https://... 方便一键去取消订阅">
+        </div>
+
+        <div class="field">
+          <label>备注（选填）</label>
+          <input type="text" name="note" value="<%= val('note', '') %>" placeholder="例如：与家人共享，AA 后每人 22.5">
+        </div>
+
+        <div class="row">
+          <label class="check"><input type="checkbox" name="auto_renew" value="1" <%= checked('auto_renew', true) ? 'checked' : '' %>> 到期自动记账</label>
+        </div>
+        <div class="tiny muted mt8">关闭后到期只提醒、不自动生成流水，适合「还没决定要不要续」的订阅。</div>
+
+        <button class="btn btn-primary btn-block mt12" type="submit"><%= isEdit ? '保存修改' : '添加订阅' %></button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  // 常用服务快选：点一下带出名称 / 图标 / 周期
+  var form = document.getElementById('sub-form');
+  if (!form) return;
+  document.querySelectorAll('.sub-preset').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      form.querySelector('[name=name]').value = btn.dataset.name || '';
+      form.querySelector('[name=icon]').value = btn.dataset.icon || '🧾';
+      form.querySelector('[name=cycle]').value = btn.dataset.cycle || 'monthly';
+      form.querySelector('[name=amount]').focus();
+    });
+  });
+})();
+</script>

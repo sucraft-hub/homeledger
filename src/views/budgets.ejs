@@ -1,0 +1,201 @@
+<div class="grid grid-4 mb16">
+  <div class="stat">
+    <div class="label">本月总支出</div>
+    <div class="value amount expense"><%= helpers.fmtAmount(overall.expense) %></div>
+    <div class="delta">共 <%= overall.count %> 笔</div>
+  </div>
+  <div class="stat">
+    <div class="label">本月总收入</div>
+    <div class="value amount income"><%= helpers.fmtAmount(overall.income) %></div>
+    <div class="delta">结余 <%= helpers.fmtAmount(overall.net) %></div>
+  </div>
+  <div class="stat">
+    <div class="label">生效中的预算</div>
+    <div class="value"><%= budgets.filter(function(b){ return b.is_active; }).length %></div>
+    <div class="delta">共 <%= budgets.length %> 条规则</div>
+  </div>
+  <div class="stat">
+    <div class="label">总预算额度</div>
+    <div class="value amount"><%= helpers.fmtAmount(totalBudget) %></div>
+    <div class="delta">达到预警线或超支时自动提醒</div>
+  </div>
+</div>
+
+<% if (!budgets.length) { %>
+  <div class="card">
+    <div class="empty">
+      <span class="big">🎯</span>
+      <h2 style="margin-bottom:8px">还没有预算</h2>
+      <p class="muted small">设置预算后，超支或接近额度时会自动给你发通知提醒。</p>
+    </div>
+  </div>
+<% } %>
+
+<div class="grid grid-main">
+  <div>
+    <% budgets.forEach(function(b){ %>
+      <div class="card">
+        <div class="row between mb8">
+          <div>
+            <h2><%= b.scope === 'overall' ? '🎯' : b.scope === 'category' ? (b.category_icon || '🏷️') : '💳' %> <%= b.name %>
+              <% if (!b.is_active) { %><span class="chip">已停用</span><% } %>
+            </h2>
+            <div class="tiny muted mt8"><%= b.scopeLabel %> · <%= b.periodLabel %> · <%= b.rangeLabel %><%= b.trigger_type === 'income' ? ' · 统计收入' : '' %></div>
+          </div>
+          <div class="right">
+            <div class="amount <%= b.ratio >= 100 ? 'expense' : '' %>" style="font-size:19px"><%= helpers.fmtAmount(b.used) %></div>
+            <div class="tiny muted">/ <%= helpers.fmtAmount(b.amount_cents) %></div>
+          </div>
+        </div>
+        <%- charts.progressBar(b.used, b.amount_cents, { height: 9 }) %>
+        <div class="row between mt8 tiny">
+          <span class="<%= b.ratio >= 100 ? 'amount expense' : 'muted' %>">
+            <% if (b.ratio >= 100) { %>
+              已超支 <%= helpers.fmtAmount(b.used - Number(b.amount_cents)) %>（<%= b.ratio.toFixed(0) %>%）
+            <% } else { %>
+              还剩 <%= helpers.fmtAmount(b.remain) %>（已用 <%= b.ratio.toFixed(0) %>%）
+            <% } %>
+          </span>
+          <span class="muted">剩余每天可用 <%= helpers.fmtAmount(b.dailyAllowance) %></span>
+        </div>
+
+        <div class="row tiny mt12" style="gap:10px">
+          <a href="#" class="budget-edit" data-id="<%= b.id %>">修改</a>
+          <form method="post" action="/budgets/<%= b.id %>/toggle" style="display:inline">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <button class="btn btn-sm btn-ghost" style="padding:0;font-size:11px"><%= b.is_active ? '停用' : '启用' %></button>
+          </form>
+          <form method="post" action="/budgets/<%= b.id %>/delete" style="display:inline" data-confirm="删除预算「<%= b.name %>」？">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <button class="btn btn-sm btn-ghost" style="padding:0;font-size:11px;color:var(--expense)">删除</button>
+          </form>
+        </div>
+
+        <div class="budget-edit-form hidden mt12" data-id="<%= b.id %>" style="background:var(--card-2);padding:12px;border-radius:10px">
+          <form method="post" action="/budgets/<%= b.id %>">
+            <input type="hidden" name="_csrf" value="<%= csrf %>">
+            <div class="row wrap" style="gap:10px">
+              <div class="field" style="flex:2;min-width:130px"><label>名称</label><input type="text" name="name" value="<%= b.name %>"></div>
+              <div class="field" style="flex:1;min-width:110px"><label>金额</label><input type="text" name="amount" inputmode="decimal" value="<%= (b.amount_cents/100).toFixed(2) %>"></div>
+              <div class="field" style="flex:1;min-width:110px"><label>周期</label><select name="period">
+                <% [['monthly','每月'],['yearly','每年'],['weekly','每周'],['custom','自定义']].forEach(function(p){ %>
+                  <option value="<%= p[0] %>" <%= b.period === p[0] ? 'selected' : '' %>><%= p[1] %></option>
+                <% }); %>
+              </select></div>
+              <div class="field" style="flex:1;min-width:110px"><label>预警线 %</label><input type="number" name="alert_pct" min="10" max="100" value="<%= b.alert_pct %>"></div>
+            </div>
+            <div class="row wrap" style="gap:10px">
+              <div class="field" style="flex:1;min-width:120px"><label>范围</label><select name="scope">
+                <option value="overall" <%= b.scope === 'overall' ? 'selected' : '' %>>总预算</option>
+                <option value="category" <%= b.scope === 'category' ? 'selected' : '' %>>按分类</option>
+                <option value="account" <%= b.scope === 'account' ? 'selected' : '' %>>按账户</option>
+              </select></div>
+              <div class="field" style="flex:2;min-width:140px"><label>分类</label><select name="category_id">
+                <option value="">—</option>
+                <% form.expenseCats.forEach(function(c){ if (c.parent_id) { %><option value="<%= c.id %>" <%= Number(b.category_id) === Number(c.id) ? 'selected' : '' %>><%= c.path %></option><% } }); %>
+              </select></div>
+              <div class="field" style="flex:2;min-width:140px"><label>账户</label><select name="account_id">
+                <option value="">—</option>
+                <% form.accounts.forEach(function(a){ %><option value="<%= a.id %>" <%= Number(b.account_id) === Number(a.id) ? 'selected' : '' %>><%= a.name %></option><% }); %>
+              </select></div>
+              <div class="field" style="flex:1;min-width:100px"><label>状态</label><select name="is_active">
+                <option value="1" <%= b.is_active ? 'selected' : '' %>>启用</option>
+                <option value="" <%= !b.is_active ? 'selected' : '' %>>停用</option>
+              </select></div>
+            </div>
+            <button class="btn btn-sm btn-primary" type="submit">保存</button>
+          </form>
+        </div>
+      </div>
+    <% }); %>
+  </div>
+
+  <div>
+    <div class="card sticky-side">
+      <div class="card-head"><h2>新建预算</h2></div>
+      <form method="post" action="/budgets">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <div class="field">
+          <label>预算名称</label>
+          <input type="text" name="name" placeholder="例如：餐饮月度预算" required>
+        </div>
+        <div class="field">
+          <label>预算金额</label>
+          <input type="text" name="amount" inputmode="decimal" placeholder="2000.00" required>
+        </div>
+        <div class="field">
+          <label>统计范围</label>
+          <select name="scope" id="b-scope">
+            <option value="overall">总预算（所有支出）</option>
+            <option value="category">按分类（如餐饮、购物）</option>
+            <option value="account">按账户（如某张信用卡）</option>
+          </select>
+        </div>
+        <div class="field hidden" id="b-cat">
+          <label>选择分类</label>
+          <select name="category_id">
+            <option value="">请选择…</option>
+            <% form.expenseCats.forEach(function(c){ if (!c.parent_id) { %>
+              <optgroup label="<%= c.name %>">
+                <% form.expenseCats.filter(function(x){ return Number(x.parent_id) === Number(c.id); }).forEach(function(x){ %>
+                  <option value="<%= x.id %>"><%= x.path %></option>
+                <% }); %>
+              </optgroup>
+            <% } }); %>
+          </select>
+        </div>
+        <div class="field hidden" id="b-acc">
+          <label>选择账户</label>
+          <select name="account_id">
+            <option value="">请选择…</option>
+            <% form.accounts.forEach(function(a){ %><option value="<%= a.id %>"><%= a.icon %> <%= a.name %></option><% }); %>
+          </select>
+        </div>
+        <div class="row wrap" style="gap:10px">
+          <div class="field" style="flex:1;min-width:100px">
+            <label>周期</label>
+            <select name="period">
+              <option value="monthly">每月</option>
+              <option value="weekly">每周</option>
+              <option value="yearly">每年</option>
+              <option value="custom">自定义区间</option>
+            </select>
+          </div>
+          <div class="field" style="flex:1;min-width:100px">
+            <label>预警线 %</label>
+            <input type="number" name="alert_pct" min="10" max="100" value="80">
+          </div>
+        </div>
+        <div class="field">
+          <label>统计对象</label>
+          <select name="trigger_type">
+            <option value="expense">支出</option>
+            <option value="income">收入</option>
+          </select>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">创建预算</button>
+      </form>
+      <div class="notice small mt12">
+        预算在每天后台任务中检查一次，达到预警线或超支时会给账本所有成员发送站内通知。
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var sel = document.getElementById('b-scope');
+  function toggle(){
+    document.getElementById('b-cat').classList.toggle('hidden', sel.value !== 'category');
+    document.getElementById('b-acc').classList.toggle('hidden', sel.value !== 'account');
+  }
+  if (sel) { sel.addEventListener('change', toggle); toggle(); }
+  document.querySelectorAll('.budget-edit').forEach(function(a){
+    a.addEventListener('click', function(e){
+      e.preventDefault();
+      var f = document.querySelector('.budget-edit-form[data-id="' + a.dataset.id + '"]');
+      if (f) f.classList.toggle('hidden');
+    });
+  });
+})();
+</script>

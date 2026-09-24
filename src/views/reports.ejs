@@ -1,0 +1,225 @@
+<%
+  var donutItems = cats.map(function(c){ return { name: c.name, value: c.total / 100, color: c.color }; });
+  var avgExpense = Number(expenseCount.c) > 0 ? Math.round(sum.expense / Number(expenseCount.c)) : 0;
+  var weekdayLabels = ['周日','周一','周二','周三','周四','周五','周六'];
+  var maxWd = Math.max.apply(null, weekday.concat([1]));
+%>
+
+<div class="card tight mb16">
+  <div class="row wrap" style="gap:6px">
+    <% [['month','本月'],['quarter','本季度'],['year','本年'],['all','全部']].forEach(function(p){ %>
+      <a class="chip <%= range.preset === p[0] ? 'primary' : '' %>" href="/reports?preset=<%= p[0] %><%= range.month ? '&month=' + range.month : '' %>"><%= p[1] %></a>
+    <% }); %>
+    <form method="get" action="/reports" class="row" style="gap:6px">
+      <input type="hidden" name="preset" value="month">
+      <input type="month" name="month" value="<%= range.month || today.slice(0,7) %>" style="width:auto">
+      <button class="btn btn-sm" type="submit">查看该月</button>
+    </form>
+    <form method="get" action="/reports" class="row" style="gap:6px">
+      <input type="hidden" name="preset" value="custom">
+      <input type="date" name="from" value="<%= range.start %>" style="width:auto">
+      <span>~</span>
+      <input type="date" name="to" value="<%= range.end %>" style="width:auto">
+      <button class="btn btn-sm" type="submit">自定义</button>
+    </form>
+    <span class="spacer"></span>
+    <a class="chip <%= kind === 'expense' ? 'primary' : '' %>" href="/reports?preset=<%= range.preset %>&month=<%= range.month || '' %>&kind=expense">支出视角</a>
+    <a class="chip <%= kind === 'income' ? 'primary' : '' %>" href="/reports?preset=<%= range.preset %>&month=<%= range.month || '' %>&kind=income">收入视角</a>
+  </div>
+</div>
+
+<div class="grid grid-4 mb16">
+  <div class="stat">
+    <div class="label">支出合计</div>
+    <div class="value amount expense"><%= helpers.fmtAmount(sum.expense) %></div>
+    <div class="delta"><%= range.label %></div>
+  </div>
+  <div class="stat">
+    <div class="label">收入合计</div>
+    <div class="value amount income"><%= helpers.fmtAmount(sum.income) %></div>
+    <div class="delta"><%= range.label %></div>
+  </div>
+  <div class="stat">
+    <div class="label">结余</div>
+    <div class="value amount <%= sum.net >= 0 ? 'income' : 'expense' %>"><%= helpers.fmtAmount(sum.net) %></div>
+    <div class="delta">储蓄率 <%= sum.income > 0 ? ((sum.net / sum.income) * 100).toFixed(1) : '—' %>%</div>
+  </div>
+  <div class="stat">
+    <div class="label">笔均支出</div>
+    <div class="value amount"><%= helpers.fmtAmount(avgExpense) %></div>
+    <div class="delta"><%= expenseCount.c %> 笔 · 记账 <%= activeDays %> 天</div>
+  </div>
+</div>
+
+<% if (compare) { %>
+<div class="card">
+  <div class="card-head"><h2>同期对比</h2></div>
+  <div class="scroll-x">
+    <table class="table">
+      <thead><tr><th>区间</th><th class="num">支出</th><th class="num">收入</th><th class="num">结余</th><th class="num">环比</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="bold">本期（<%= range.label %>）</td>
+          <td class="num amount expense"><%= helpers.fmtAmount(sum.expense) %></td>
+          <td class="num amount income"><%= helpers.fmtAmount(sum.income) %></td>
+          <td class="num amount"><%= helpers.fmtAmount(sum.net) %></td>
+          <td class="num">—</td>
+        </tr>
+        <tr>
+          <td>上月（<%= compare.prevMonth.label %>）</td>
+          <td class="num amount expense"><%= helpers.fmtAmount(compare.prevMonth.expense) %></td>
+          <td class="num amount income"><%= helpers.fmtAmount(compare.prevMonth.income) %></td>
+          <td class="num amount"><%= helpers.fmtAmount(compare.prevMonth.net) %></td>
+          <td class="num <%= sum.expense > compare.prevMonth.expense ? 'amount expense' : 'amount income' %>">
+            <% var d1 = compare.prevMonth.expense > 0 ? ((sum.expense - compare.prevMonth.expense) / compare.prevMonth.expense * 100) : 0; %>
+            <%= d1 >= 0 ? '↑' : '↓' %> <%= Math.abs(d1).toFixed(1) %>%
+          </td>
+        </tr>
+        <tr>
+          <td>去年同期（<%= compare.lastYear.label %>）</td>
+          <td class="num amount expense"><%= helpers.fmtAmount(compare.lastYear.expense) %></td>
+          <td class="num amount income"><%= helpers.fmtAmount(compare.lastYear.income) %></td>
+          <td class="num amount"><%= helpers.fmtAmount(compare.lastYear.net) %></td>
+          <td class="num <%= sum.expense > compare.lastYear.expense ? 'amount expense' : 'amount income' %>">
+            <% var d2 = compare.lastYear.expense > 0 ? ((sum.expense - compare.lastYear.expense) / compare.lastYear.expense * 100) : 0; %>
+            <%= d2 >= 0 ? '↑' : '↓' %> <%= Math.abs(d2).toFixed(1) %>%
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>
+
+<div class="card">
+  <div class="card-head"><h2>近 12 个月收支趋势</h2></div>
+  <div class="chart-box">
+    <%- charts.barChart({
+      labels: trend.map(function(t){ return helpers.monthShort(t.month); }),
+      series: [
+        { name: '支出', color: '#f5222d', data: trend.map(function(t){ return t.expense / 100; }) },
+        { name: '收入', color: '#52c41a', data: trend.map(function(t){ return t.income / 100; }) }
+      ]
+    }) %>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head">
+      <h2><%= kind === 'expense' ? '支出' : '收入' %>构成</h2>
+      <span class="muted small"><%= range.label %></span>
+    </div>
+    <% if (!donutItems.length) { %>
+      <div class="empty"><span class="big">📊</span>该区间没有数据</div>
+    <% } else { %>
+      <div class="row" style="gap:16px;align-items:flex-start;flex-wrap:wrap">
+        <div style="flex:0 0 180px">
+          <%- charts.donutChart(donutItems, { size: 175, thickness: 24, centerValue: helpers.compactMoney(kind === 'expense' ? sum.expense : sum.income), centerTitle: kind === 'expense' ? '总支出' : '总收入' }) %>
+        </div>
+        <div style="flex:1;min-width:210px">
+          <%- charts.donutLegend(donutItems, (kind === 'expense' ? sum.expense : sum.income) / 100) %>
+        </div>
+      </div>
+    <% } %>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2>分类排行榜</h2>
+      <span class="muted small"><%= top ? '下钻：' + top : '一级分类' %></span>
+      <% if (top) { %><a class="btn btn-sm btn-ghost" href="/reports?preset=<%= range.preset %>&month=<%= range.month || '' %>&kind=<%= kind %>">返回一级</a><% } %>
+    </div>
+    <% if (!subcats.length) { %>
+      <div class="empty"><span class="big">🏆</span>没有数据</div>
+    <% } else { %>
+      <div class="scroll-x" style="max-height:340px;overflow-y:auto">
+        <%- charts.rankBars(subcats.slice(0, 30).map(function(c){ return { name: c.parent ? c.parent + '/' + c.name : c.name, value: c.total / 100, color: c.color }; }), { valueUnit: '' }) %>
+      </div>
+      <div class="tiny muted mt8">点分类名可下钻查看该分类下的二级明细</div>
+      <div class="row wrap mt8" style="gap:6px">
+        <% cats.slice(0, 8).forEach(function(c){ %>
+          <a class="chip" href="/reports?preset=<%= range.preset %>&month=<%= range.month || '' %>&kind=<%= kind %>&top=<%= encodeURIComponent(c.name) %>"><%= c.icon %> <%= c.name %></a>
+        <% }); %>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2>每日支出走势</h2>
+    <% if (maxDay) { %><span class="muted small">支出最高的一天：<%= maxDay.date %>（<%= helpers.fmtAmount(maxDay.expense) %>）</span><% } %>
+  </div>
+  <div class="chart-box">
+    <%- charts.lineChart({
+      labels: days.map(function(d){ return d.date.slice(5); }),
+      series: [{ name: '每日支出', color: '#f5222d', data: days.map(function(d){ return d.expense / 100; }) }],
+      height: 200
+    }) %>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <div class="card-head"><h2>星期消费分布</h2><span class="muted small">看你的钱花在哪几天</span></div>
+    <div class="chart-box">
+      <%- charts.barChart({
+        labels: weekdayLabels,
+        series: [{ name: '支出', color: '#722ed1', data: weekday.map(function(v){ return v / 100; }) }],
+        height: 190, showLegend: false
+      }) %>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h2>成员消费对比</h2><span class="muted small">家庭账本很有用</span></div>
+    <% if (!members.length) { %>
+      <div class="empty"><span class="big">👨‍👩‍👧</span>没有数据</div>
+    <% } else { %>
+      <% members.forEach(function(m){ %>
+        <div class="mb12">
+          <div class="row between small">
+            <span><span class="avatar" style="background:<%= m.color %>;width:20px;height:20px;font-size:10px;display:inline-grid;vertical-align:-5px"><%= helpers.initials(m.name) %></span> <%= m.name %></span>
+            <span class="muted"><%= m.cnt %> 笔 · 支出 <b class="amount expense"><%= helpers.fmtAmount(m.expense) %></b></span>
+          </div>
+          <div class="mt8"><%- charts.progressBar(m.expense, Math.max.apply(null, members.map(function(x){ return Number(x.expense); }).concat([1])), { color: m.color }) %></div>
+        </div>
+      <% }); %>
+    <% } %>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2>净资产走势（近 12 个月）</h2><span class="muted small">含所有账户余额累计</span></div>
+  <div class="chart-box">
+    <%- charts.lineChart({
+      labels: netWorth.map(function(t){ return helpers.monthShort(t.month); }),
+      series: [{ name: '净资产', color: '#4f7cff', data: netWorth.map(function(t){ return t.value / 100; }) }],
+      height: 210
+    }) %>
+  </div>
+  <div class="row wrap" style="gap:16px">
+    <span class="small muted">当前净资产 <b class="amount"><%= helpers.money(overview.net) %></b></span>
+    <span class="small muted">总资产 <b class="amount"><%= helpers.money(overview.assets) %></b></span>
+    <span class="small muted">总负债 <b class="amount expense"><%= helpers.money(overview.liabilities) %></b></span>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head"><h2>账户余额一览</h2><a class="btn btn-sm btn-ghost" href="/accounts">管理 →</a></div>
+  <table class="table responsive">
+    <thead><tr><th>账户</th><th>类型</th><th class="num">初始余额</th><th class="num">当前余额</th><th class="num">占净资产</th></tr></thead>
+    <tbody>
+      <% var netAbs = overview.accounts.reduce(function(s,a){ return s + Math.abs(Number(a.balance_cents)); }, 0) || 1; %>
+      <% overview.accounts.forEach(function(a){ %>
+        <tr>
+          <td><a href="/accounts/<%= a.id %>"><%= a.icon %> <%= a.name %></a></td>
+          <td class="muted small"><%= (ACCOUNT_TYPE_MAP[a.type] || {}).label || a.type %></td>
+          <td class="num muted"><%= helpers.fmtAmount(a.initial_cents) %></td>
+          <td class="num amount <%= Number(a.balance_cents) < 0 ? 'expense' : '' %>"><%= helpers.money(a.balance_cents, a.currency) %></td>
+          <td class="num muted"><%= ((Math.abs(Number(a.balance_cents)) / netAbs) * 100).toFixed(1) %>%</td>
+        </tr>
+      <% }); %>
+    </tbody>
+  </table>
+</div>
