@@ -76,7 +76,6 @@ docker compose up -d
 ### AI 记账
 
 - **站内 AI 小助手**：全站右下角浮动助手，发文字或截图**直接自动记账**（识别 + 入库一步完成），未配置模型时规则引擎兜底
-- **站内 AI 小助手**：全站右下角浮动助手，发文字或截图**直接自动记账**（识别 + 入库一步完成），未配置模型时规则引擎兜底
 - **截图记账**：拖拽 / 粘贴 / 选择账单截图 → 视觉大模型识别 → 生成结构化草稿 → 二次确认后入库
 - **截图自动存档**：记账用的账单图会一并保存并关联到对应记录，交易列表有 📎 标记、详情页可回看原图
 - **文本记账**：「晚餐 88 打车 26.5」这类自然语言直接拆成多笔
@@ -271,14 +270,19 @@ homeledger/
 │   │   ├── auth.js         # scrypt 哈希、会话存储、权限、CSRF、审计、通知
 │   │   ├── txn.js          # 交易写入/查询/统计聚合
 │   │   ├── ai.js           # 双引擎 AI（大模型 + 关键词规则）
+│   │   ├── attachments.js  # 账单截图存档（Web 与开放 API 统一路径）
+│   │   ├── subscriptions.js# 订阅扣费：周期生成、摊平月均、到期提醒
 │   │   ├── importers.js    # 支付宝/微信/通用 CSV 解析与入库
 │   │   ├── charts.js       # 服务端 SVG 图表引擎
 │   │   ├── scheduler.js    # 周期账单、订阅扣费、预算预警、到期提醒
+│   │   ├── about.js        # 关于页数据（仓库地址、版本日志）
 │   │   ├── formdata.js     # 表单下拉数据
 │   │   └── util.js         # 金额/日期/转义工具
-│   ├── routes/             # auth / dashboard / transactions / accounts / planning / subscriptions / ai / reports / admin
+│   ├── routes/             # auth / dashboard / transactions / accounts / planning / subscriptions / ai / reports / admin / about / openapi
 │   └── views/              # EJS 模板（含 layout 布局与 partials）
 ├── public/                 # css / js / manifest（PWA）
+├── scripts/                # reset-password.js 密码重置 / seed-demo.js 演示数据
+├── openclaw-skill/         # 小龙虾自动记账技能（对接开放 API）
 ├── test/                   # 回归套件（verify-*.js）+ 一键跑批 run-all.js + 静态自检 selfcheck-static.js
 ├── data/                   # SQLite 数据库 + 上传的附件（备份就拷这个）
 ├── Dockerfile

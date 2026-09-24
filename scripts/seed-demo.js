@@ -1,6 +1,6 @@
 'use strict';
 /**
- * 演示数据种子脚本（仅用于公众号文章截图，独立 DATA_DIR，不影响真实数据）
+ * 演示数据种子脚本（仅用于演示/截图，独立 DATA_DIR，不影响真实数据）
  * 用法：DATA_DIR=./data-demo node scripts/seed-demo.js
  */
 const path = require('node:path');

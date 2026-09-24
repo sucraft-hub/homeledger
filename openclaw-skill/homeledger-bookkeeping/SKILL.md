@@ -7,7 +7,7 @@ description: 家账簿（HomeLedger）自动记账。当用户发送账单截图
 
 ## 前置配置（技能环境变量或对话中告知）
 
-- `HOMELEDGER_URL`：家账簿地址，例如 `http://192.168.5.250:5111`（NAS 局域网内可达）
+- `HOMELEDGER_URL`：家账簿地址，例如 `http://<NAS_IP>:5111`（NAS 局域网内可达）
 - `HOMELEDGER_TOKEN`：API 令牌，在家账簿「设置 → 开放 API」中生成（`hl_` 开头）
 
 两个变量缺一个时，先向用户询问，不要猜。
@@ -40,7 +40,7 @@ curl -sS -X POST "$HOMELEDGER_URL/api/open/ai/bill" \
 
 - 想让 `confirm: false` 的草稿调用也留档，加 `"save_images": true`（默认不留档，避免试探性调用堆积无用图片）。
 - 在聊天里回执时可以附原图：把 `path` 拼到家账簿地址后面即可，如
-  `http://192.168.5.250:5111/uploads/202609/1730f3a2.png`；
+  `http://<NAS_IP>:5111/uploads/202609/1730f3a2.png`；
   或用带令牌的接口取回（适合家账簿不对外直连的场景）：
   `GET $HOMELEDGER_URL/api/open/attachments/7` + `Authorization: Bearer $HOMELEDGER_TOKEN`。
 
