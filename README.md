@@ -7,39 +7,61 @@
 - **家庭共享**：多账本、邀请码加入、四档成员角色、报表按成员拆分
 - **理财规划**：预算、周期账单、订阅扣费、借贷台账、储蓄目标，到期与超支自动提醒
 - **报表图表**：收支趋势、净资产曲线、分类构成、日历热力图，服务端 SVG 渲染、完全离线
-- **部署简单**：一条 `npm start` 即可运行；提供飞牛 fnOS 原生应用包（.fpk）与 Docker 方式；单文件 SQLite，备份 = 拷贝 `data/` 目录
+- **部署简单**：`docker compose up -d` 一条命令跑通；也支持 `npm start` 直接运行与飞牛 fnOS 原生应用包（.fpk）；单文件 SQLite，备份 = 拷贝 `data/` 目录
 
 技术形态：Node.js 22+ / Express / EJS / `node:sqlite`（Node 内置，无需编译），纯后端服务端渲染，零原生依赖，不依赖任何前端构建工具。
 
 ---
 
-## 一、快速开始
+## 一、快速开始：Docker / Compose 部署（推荐）
 
-### 方式 A：直接运行（推荐本地 / 已有 Node 环境）
+### 方式 A：Docker Compose 一键部署（推荐 NAS / 服务器）
 
 ```bash
+# 1. 拉取代码
+git clone https://github.com/sucraft-hub/homeledger.git
 cd homeledger
-npm install          # 仅 3 个纯 JS 依赖，80 个包，无原生编译
-npm start
+
+# 2. 一键构建并启动（首次构建约 1-2 分钟，之后有缓存秒起）
+docker compose up -d
+
+# 3. 看日志确认启动成功
+docker compose logs -f
 ```
 
-打开 http://localhost:5111
+打开 `http://<NAS或服务器的IP>:5111`，完成。
 
-### 方式 B：飞牛 NAS 等 Docker 部署
+`docker-compose.yml` 已预置好一切，无需改动即可跑通：
+
+| 预置项 | 说明 |
+| --- | --- |
+| 数据卷 `./data` ↔ 容器 `/data` | 账本数据、截图附件全部落在宿主机 `data/` 目录，**删容器不丢账**，备份就是拷这个目录 |
+| 时区 `Asia/Shanghai` | 记账日期、日历热力图按本地时间 |
+| `restart: unless-stopped` | 开机自启、异常自动拉起 |
+| `host.docker.internal` 映射 | NAS 上跑了 Ollama 时可直接内网调用（`http://host.docker.internal:11434/v1`） |
+
+> 💡 建议部署前改掉两处默认值（编辑 `docker-compose.yml`）：
+> - `SESSION_SECRET`：改成随机长字符串（`openssl rand -hex 32`），否则重启后登录态失效
+> - `ADMIN_PASSWORD`：首次启动会按这里的值自动创建管理员
+
+### 方式 B：纯 Docker（不想用 Compose）
 
 ```bash
-# 把整个 homeledger 目录上传到 NAS，例如 /vol1/1000/docker/homeledger
-cd /vol1/1000/docker/homeledger
-docker compose up -d
+git clone https://github.com/sucraft-hub/homeledger.git
+cd homeledger
+
+# 构建镜像
+docker build -t homeledger .
+
+# 运行（把 /path/to/data 换成你自己的目录，例如 /vol1/1000/docker/homeledger/data）
+docker run -d \
+  --name homeledger \
+  --restart unless-stopped \
+  -p 5111:5111 \
+  -e TZ=Asia/Shanghai \
+  -v /path/to/data:/data \
+  homeledger
 ```
-
-打开 `http://<NAS的IP>:5111`
-
-`docker-compose.yml` 已预置：
-
-- 数据卷 `./data` ↔ 容器 `/data`（数据落在 NAS 上，删容器不丢账）
-- 时区 `Asia/Shanghai`
-- `restart: unless-stopped`（开机自启）
 
 ### 首次启动
 
@@ -57,6 +79,16 @@ docker compose up -d
 > SESSION_SECRET=一串足够长的随机字符串
 > ```
 > `SESSION_SECRET` 强烈建议修改，否则重启后所有登录态失效（并不影响数据）。
+
+### 其他部署方式
+
+- **直接运行（本地开发 / 已有 Node 22+ 环境）**：
+  ```bash
+  cd homeledger
+  npm install          # 仅 3 个纯 JS 依赖，80 个包，无原生编译
+  npm start            # 打开 http://localhost:5111
+  ```
+- **飞牛 fnOS 原生应用**：无需 Docker，下载 Releases 里的 `.fpk` 一键安装，见[第五节](#五飞牛-fnos-应用包fpk)
 
 ---
 
