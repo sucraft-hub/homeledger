@@ -15,42 +15,57 @@
 
 ## 一、快速开始：Docker / Compose 部署（推荐）
 
-### 方式 A：Docker Compose 一键部署（推荐 NAS / 服务器）
+### 方式 A：Docker Compose（复制粘贴即可安装）
 
-整块复制粘贴，跑完就能用：
+新建一个空目录，把下面整块内容保存为 `docker-compose.yml`：
 
-```bash
-git clone https://github.com/sucraft-hub/homeledger.git && cd homeledger && docker compose up -d
+```yaml
+services:
+  homeledger:
+    image: ghcr.io/sucraft-hub/homeledger:latest
+    container_name: homeledger
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      SESSION_SECRET: "请改成随机长字符串"
+      ADMIN_USER: "admin"
+      ADMIN_PASSWORD: "请改成你的强密码"
+    ports:
+      - "5111:5111"
+    volumes:
+      - ./data:/data
 ```
 
-打开 `http://<NAS或服务器的IP>:5111`，默认账号 **admin / admin888**，登录后改密码即可。完事。
-
-**想要更安全的初始化**（自定义密码 + 随机会话密钥，同样不用编辑任何文件）：
+然后在同目录执行一条命令：
 
 ```bash
-git clone https://github.com/sucraft-hub/homeledger.git && cd homeledger
-SESSION_SECRET=$(openssl rand -hex 32) ADMIN_PASSWORD=改成你的强密码 docker compose up -d
+docker compose up -d
 ```
 
-`docker-compose.yml` 已预置好一切，无需改动即可跑通：
+打开 `http://<NAS或服务器的IP>:5111` 即可使用。
 
-| 预置项 | 说明 |
+| 配置项 | 说明 |
 | --- | --- |
-| 数据卷 `./data` ↔ 容器 `/data` | 账本数据、截图附件全部落在宿主机 `data/` 目录，**删容器不丢账**，备份就是拷这个目录 |
-| 时区 `Asia/Shanghai` | 记账日期、日历热力图按本地时间 |
+| `image` | 官方预构建镜像（GitHub Actions 自动发布），无需本地构建 |
+| `SESSION_SECRET` | 改成随机长字符串（`openssl rand -hex 32`），否则重启后登录态失效 |
+| `ADMIN_USER` / `ADMIN_PASSWORD` | 首次启动自动创建的管理员（仅当库中还没有用户时生效） |
+| `ports` | 左侧为对外访问端口，冲突可改；右侧保持 5111 |
+| `volumes` | 账本数据、截图附件全部落在宿主机 `./data` 目录，**删容器不丢账**，备份就是拷这个目录 |
 | `restart: unless-stopped` | 开机自启、异常自动拉起 |
-| 密码/密钥支持命令行覆盖 | `SESSION_SECRET`、`ADMIN_PASSWORD` 等可直接在 `docker compose up -d` 前用环境变量指定，不用编辑文件 |
-| `host.docker.internal` 映射 | NAS 上跑了 Ollama 时可直接内网调用（`http://host.docker.internal:11434/v1`） |
 
 ### 方式 B：纯 Docker（不想用 Compose）
 
-同样整块复制粘贴，数据落在当前目录的 `data/` 里：
+```bash
+docker run -d --name homeledger --restart unless-stopped -p 5111:5111 \
+  -e TZ=Asia/Shanghai -e SESSION_SECRET="请改成随机长字符串" \
+  -v "$PWD/data:/data" ghcr.io/sucraft-hub/homeledger:latest
+```
+
+### 方式 C：从源码构建（不想用预构建镜像）
 
 ```bash
 git clone https://github.com/sucraft-hub/homeledger.git && cd homeledger
-docker build -t homeledger .
-docker run -d --name homeledger --restart unless-stopped -p 5111:5111 \
-  -e TZ=Asia/Shanghai -v "$PWD/data:/data" homeledger
+docker compose up -d          # 仓库自带 docker-compose.yml（build: . 本地构建）
 ```
 
 ### 首次启动
