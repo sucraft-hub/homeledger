@@ -17,19 +17,20 @@
 
 ### 方式 A：Docker Compose 一键部署（推荐 NAS / 服务器）
 
+整块复制粘贴，跑完就能用：
+
 ```bash
-# 1. 拉取代码
-git clone https://github.com/sucraft-hub/homeledger.git
-cd homeledger
-
-# 2. 一键构建并启动（首次构建约 1-2 分钟，之后有缓存秒起）
-docker compose up -d
-
-# 3. 看日志确认启动成功
-docker compose logs -f
+git clone https://github.com/sucraft-hub/homeledger.git && cd homeledger && docker compose up -d
 ```
 
-打开 `http://<NAS或服务器的IP>:5111`，完成。
+打开 `http://<NAS或服务器的IP>:5111`，默认账号 **admin / admin888**，登录后改密码即可。完事。
+
+**想要更安全的初始化**（自定义密码 + 随机会话密钥，同样不用编辑任何文件）：
+
+```bash
+git clone https://github.com/sucraft-hub/homeledger.git && cd homeledger
+SESSION_SECRET=$(openssl rand -hex 32) ADMIN_PASSWORD=改成你的强密码 docker compose up -d
+```
 
 `docker-compose.yml` 已预置好一切，无需改动即可跑通：
 
@@ -38,29 +39,18 @@ docker compose logs -f
 | 数据卷 `./data` ↔ 容器 `/data` | 账本数据、截图附件全部落在宿主机 `data/` 目录，**删容器不丢账**，备份就是拷这个目录 |
 | 时区 `Asia/Shanghai` | 记账日期、日历热力图按本地时间 |
 | `restart: unless-stopped` | 开机自启、异常自动拉起 |
+| 密码/密钥支持命令行覆盖 | `SESSION_SECRET`、`ADMIN_PASSWORD` 等可直接在 `docker compose up -d` 前用环境变量指定，不用编辑文件 |
 | `host.docker.internal` 映射 | NAS 上跑了 Ollama 时可直接内网调用（`http://host.docker.internal:11434/v1`） |
-
-> 💡 建议部署前改掉两处默认值（编辑 `docker-compose.yml`）：
-> - `SESSION_SECRET`：改成随机长字符串（`openssl rand -hex 32`），否则重启后登录态失效
-> - `ADMIN_PASSWORD`：首次启动会按这里的值自动创建管理员
 
 ### 方式 B：纯 Docker（不想用 Compose）
 
+同样整块复制粘贴，数据落在当前目录的 `data/` 里：
+
 ```bash
-git clone https://github.com/sucraft-hub/homeledger.git
-cd homeledger
-
-# 构建镜像
+git clone https://github.com/sucraft-hub/homeledger.git && cd homeledger
 docker build -t homeledger .
-
-# 运行（把 /path/to/data 换成你自己的目录，例如 /vol1/1000/docker/homeledger/data）
-docker run -d \
-  --name homeledger \
-  --restart unless-stopped \
-  -p 5111:5111 \
-  -e TZ=Asia/Shanghai \
-  -v /path/to/data:/data \
-  homeledger
+docker run -d --name homeledger --restart unless-stopped -p 5111:5111 \
+  -e TZ=Asia/Shanghai -v "$PWD/data:/data" homeledger
 ```
 
 ### 首次启动

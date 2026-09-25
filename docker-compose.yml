@@ -12,11 +12,12 @@ services:
       TZ: Asia/Shanghai
       PORT: "5111"
       DATA_DIR: /data
-      # ⚠️ 首次部署请改成随机长字符串：openssl rand -hex 32
-      SESSION_SECRET: "please-change-this-session-secret"
+      # 支持在命令行直接覆盖，不用编辑本文件：
+      #   SESSION_SECRET=$(openssl rand -hex 32) ADMIN_PASSWORD=你的密码 docker compose up -d
+      SESSION_SECRET: "${SESSION_SECRET:-please-change-this-session-secret}"
       # 首次启动自动创建管理员（仅当库中还没有任何用户时生效）
-      ADMIN_USER: "admin"
-      ADMIN_PASSWORD: "admin888"
+      ADMIN_USER: "${ADMIN_USER:-admin}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-admin888}"
       ALLOW_REGISTER: "true"
       # 若 NAS 上跑了 Ollama，可在此指定本机推理地址（也可登录后在网页里配置）
       OLLAMA_BASE_URL: "http://host.docker.internal:11434/v1"
